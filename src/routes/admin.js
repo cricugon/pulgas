@@ -121,6 +121,15 @@ adminRouter.post("/backups", async (req, res) => {
   res.status(201).json({ message: "Backup creado.", backup });
 });
 
+adminRouter.delete("/backups/:id", async (req, res) => {
+  const backup = await LeagueBackup.findByIdAndDelete(req.params.id);
+  if (!backup) {
+    return res.status(404).json({ message: "Backup no encontrado." });
+  }
+
+  res.json({ message: "Backup eliminado." });
+});
+
 adminRouter.post("/backups/:id/restore", async (req, res) => {
   if (req.body.confirmation !== "RESTAURAR") {
     return res.status(400).json({ message: "Confirmacion no valida. Escribe RESTAURAR para restaurar." });

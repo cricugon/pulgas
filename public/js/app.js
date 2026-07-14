@@ -1195,6 +1195,7 @@ function renderAdminBackup(backup) {
       </div>
       <div class="row-actions">
         <button class="mini-button" data-restore-backup="${backup._id}">Restaurar</button>
+        <button class="mini-button danger" data-delete-backup="${backup._id}">Borrar</button>
       </div>
     </article>
   `;
@@ -1544,6 +1545,25 @@ async function restoreBackupFromAdmin(backupId) {
   }
 }
 
+async function deleteBackupFromAdmin(backupId) {
+  const backup = state.admin.backups.find((item) => item._id === backupId);
+  const ok = window.confirm(
+    `Borrar${backup?.name ? ` "${backup.name}"` : " este backup"} de forma permanente. Esta accion no se puede deshacer.`
+  );
+
+  if (!ok) return;
+
+  try {
+    const data = await api(`/api/admin/backups/${backupId}`, {
+      method: "DELETE"
+    });
+    await loadAdmin();
+    showToast(data.message);
+  } catch (error) {
+    showToast(error.message, "error");
+  }
+}
+
 async function saveGameweek(event) {
   event.preventDefault();
   try {
@@ -1849,6 +1869,11 @@ function bindEvents() {
 
     if (button.dataset.restoreBackup) {
       await restoreBackupFromAdmin(button.dataset.restoreBackup);
+      return;
+    }
+
+    if (button.dataset.deleteBackup) {
+      await deleteBackupFromAdmin(button.dataset.deleteBackup);
       return;
     }
 

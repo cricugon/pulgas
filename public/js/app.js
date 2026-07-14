@@ -7,6 +7,7 @@ const state = {
   clubs: [],
   marketPlayers: [],
   gameweeks: [],
+  news: [],
   activeGameweek: null,
   currentLineup: null,
   lineupDraft: null,
@@ -21,7 +22,8 @@ const state = {
     players: [],
     teams: [],
     clubs: [],
-    gameweeks: []
+    gameweeks: [],
+    backups: []
   }
 };
 
@@ -50,6 +52,7 @@ const els = {
   squadMetric: $("#squadMetric"),
   squadValue: $("#squadValue"),
   matchesList: $("#matchesList"),
+  newsList: $("#newsList"),
   squadList: $("#squadList"),
   marketList: $("#marketList"),
   positionFilter: $("#positionFilter"),
@@ -74,6 +77,7 @@ const els = {
   playerDetailBody: $("#playerDetailBody"),
   adminSummary: $("#adminSummary"),
   adminRefreshBtn: $("#adminRefreshBtn"),
+  resetLeagueBtn: $("#resetLeagueBtn"),
   adminModal: $("#adminModal"),
   adminModalTitle: $("#adminModalTitle"),
   adminModalBody: $("#adminModalBody"),
@@ -101,6 +105,7 @@ const els = {
   clubShortInput: $("#clubShortInput"),
   clubCityInput: $("#clubCityInput"),
   adminClubs: $("#adminClubs"),
+  adminBackups: $("#adminBackups"),
   gameweekForm: $("#gameweekForm"),
   gwIdInput: $("#gwIdInput"),
   gwNumberInput: $("#gwNumberInput"),
@@ -206,6 +211,14 @@ function formatEuro(value = 0) {
 function formatPoints(value = 0) {
   const points = Number(value || 0);
   return `${points > 0 ? "+" : ""}${points} pts`;
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("es-ES", {
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(new Date(value));
 }
 
 function escapeHtml(value = "") {
@@ -321,7 +334,38 @@ function renderShell() {
   els.pointsMetric.textContent = state.user.totalPoints || 0;
   els.squadMetric.textContent = state.players.length || 0;
   renderActiveGameweek();
+  renderNews();
   renderSquad();
+}
+
+const NEWS_LABELS = {
+  gameweek_started: "Jornada",
+  gameweek_finished: "Final",
+  match_scored: "Puntos",
+  player_created: "Jugador",
+  team_registered: "Equipo",
+  system: "Liga"
+};
+
+function renderNews() {
+  if (!els.newsList) return;
+
+  els.newsList.innerHTML = state.news.length
+    ? state.news.map(renderNewsItem).join("")
+    : `<p class="hint">Todavia no hay noticias publicadas.</p>`;
+}
+
+function renderNewsItem(item) {
+  const label = NEWS_LABELS[item.type] || "Liga";
+  return `
+    <article class="news-item">
+      <span class="news-type">${escapeHtml(label)}</span>
+      <div>
+        <strong>${escapeHtml(item.title)}</strong>
+        <small>${formatDateTime(item.createdAt)}${item.body ? ` - ${escapeHtml(item.body)}` : ""}</small>
+      </div>
+    </article>
+  `;
 }
 
 function renderActiveGameweek() {
@@ -389,17 +433,19 @@ function renderPlayerCard(player, options = {}) {
 }
 
 async function refreshCore() {
-  const [me, activeGameweek, players, clubs] = await Promise.all([
+  const [me, activeGameweek, players, clubs, news] = await Promise.all([
     api("/api/auth/me"),
     api("/api/gameweeks/active"),
     api("/api/players"),
-    api("/api/clubs")
+    api("/api/clubs"),
+    api("/api/news")
   ]);
 
   state.user = me.user;
   state.activeGameweek = activeGameweek.gameweek;
   state.players = players.players;
   state.clubs = clubs.clubs;
+  state.news = news.news || [];
   renderShell();
 }
 
@@ -1016,13 +1062,14 @@ async function loadAdmin() {
   if (state.user?.role !== "admin") return;
 
   try {
-    const [summary, settings, players, teams, clubs, gameweeks] = await Promise.all([
+    const [summary, settings, players, teams, clubs, gameweeks, backups] = await Promise.all([
       api("/api/admin/summary"),
       api("/api/admin/settings"),
       api("/api/admin/players"),
       api("/api/admin/teams"),
       api("/api/admin/clubs"),
-      api("/api/gameweeks")
+      api("/api/gameweeks"),
+      api("/api/admin/backups")
     ]);
 
     state.admin.summary = summary.summary;
@@ -1031,6 +1078,7 @@ async function loadAdmin() {
     state.admin.teams = teams.teams;
     state.admin.clubs = clubs.clubs;
     state.admin.gameweeks = gameweeks.gameweeks;
+    state.admin.backups = backups.backups;
     renderAdmin();
   } catch (error) {
     showToast(error.message, "error");
@@ -1121,7 +1169,35 @@ function renderAdmin() {
     )
     .join("");
 
+  els.adminBackups.innerHTML = state.admin.backups.length
+    ? state.admin.backups
+        .map(renderAdminBackup)
+        .join("")
+    : `<p class="hint">Todavia no hay backups.</p>`;
+
   els.adminGameweeks.innerHTML = state.admin.gameweeks.map(renderAdminGameweek).join("");
+}
+
+function renderAdminBackup(backup) {
+  const counts = backup.counts || {};
+  const reasonLabel = {
+    manual: "Manual",
+    before_gameweek_start: "Antes de iniciar jornada",
+    before_restore: "Antes de restaurar"
+  }[backup.reason] || backup.reason;
+
+  return `
+    <article class="admin-row backup-row">
+      <div>
+        <strong>${escapeHtml(backup.name)}</strong>
+        <small>${escapeHtml(reasonLabel)} - ${formatDateTime(backup.createdAt)} - ${counts.players || 0} jugadores - ${counts.gameweeks || 0} jornadas - ${counts.lineups || 0} alineaciones - ${counts.news || 0} noticias</small>
+        <small>Usuarios snapshot: ${counts.users || 0}${backup.createdByEmail ? ` - creado por ${escapeHtml(backup.createdByEmail)}` : ""}</small>
+      </div>
+      <div class="row-actions">
+        <button class="mini-button" data-restore-backup="${backup._id}">Restaurar</button>
+      </div>
+    </article>
+  `;
 }
 
 function renderAdminGameweek(gw) {
@@ -1386,6 +1462,83 @@ async function saveSettings(event) {
     });
     await loadAdmin();
     showToast("Presupuesto inicial actualizado.");
+  } catch (error) {
+    showToast(error.message, "error");
+  }
+}
+
+async function resetLeagueFromAdmin() {
+  const confirmation = window.prompt(
+    "Esta accion conserva usuarios, pero borra clubes, jugadores, jornadas, alineaciones e historico. Escribe REINICIAR para continuar."
+  );
+
+  if (confirmation !== "REINICIAR") {
+    showToast("Reinicio cancelado.");
+    return;
+  }
+
+  const loadDemoData = window.confirm("¿Quieres cargar los datos demo despues de reiniciar?");
+
+  try {
+    const data = await api("/api/admin/league/reset", {
+      method: "POST",
+      body: {
+        confirmation,
+        loadDemoData
+      }
+    });
+
+    state.historyGameweekDetails = {};
+    state.activeGameweekLeaderboard = null;
+    await refreshCore();
+    await loadAdmin();
+    await loadLeaderboard();
+    showToast(data.message);
+  } catch (error) {
+    showToast(error.message, "error");
+  }
+}
+
+async function createBackupFromAdmin() {
+  const name = window.prompt("Nombre del backup manual:", `Backup manual ${formatDateTime(new Date())}`);
+  if (name === null) return;
+
+  try {
+    await api("/api/admin/backups", {
+      method: "POST",
+      body: { name }
+    });
+    await loadAdmin();
+    showToast("Backup creado.");
+  } catch (error) {
+    showToast(error.message, "error");
+  }
+}
+
+async function restoreBackupFromAdmin(backupId) {
+  const backup = state.admin.backups.find((item) => item._id === backupId);
+  const confirmation = window.prompt(
+    `Restaurar${backup?.name ? ` "${backup.name}"` : ""} devolvera jornadas, jugadores, puntos, alineaciones y configuracion al snapshot. Las cuentas registradas se conservan. Escribe RESTAURAR para continuar.`
+  );
+
+  if (confirmation !== "RESTAURAR") {
+    showToast("Restauracion cancelada.");
+    return;
+  }
+
+  try {
+    const data = await api(`/api/admin/backups/${backupId}/restore`, {
+      method: "POST",
+      body: { confirmation }
+    });
+
+    state.historyGameweekDetails = {};
+    state.activeGameweekLeaderboard = null;
+    state.playerStatsCache = {};
+    await refreshCore();
+    await loadAdmin();
+    await loadLeaderboard();
+    showToast(data.message);
   } catch (error) {
     showToast(error.message, "error");
   }
@@ -1662,6 +1815,7 @@ function bindEvents() {
   });
 
   els.adminRefreshBtn.addEventListener("click", loadAdmin);
+  els.resetLeagueBtn.addEventListener("click", resetLeagueFromAdmin);
   els.settingsForm.addEventListener("submit", saveSettings);
   els.playerForm.addEventListener("submit", savePlayer);
   els.playerResetBtn.addEventListener("click", resetPlayerForm);
@@ -1685,6 +1839,16 @@ function bindEvents() {
 
     if (button.dataset.openModal) {
       openCreateModal(button.dataset.openModal);
+      return;
+    }
+
+    if (button.hasAttribute("data-create-backup")) {
+      await createBackupFromAdmin();
+      return;
+    }
+
+    if (button.dataset.restoreBackup) {
+      await restoreBackupFromAdmin(button.dataset.restoreBackup);
       return;
     }
 

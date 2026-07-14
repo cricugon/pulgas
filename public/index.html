@@ -48,8 +48,6 @@
               <input id="teamNameInput" type="text" placeholder="Pulgas FC" />
             </label>
             <button class="primary-button" type="submit">Continuar</button>
-            <p class="hint">Demo admin: admin@pulgasleague.test / 123456</p>
-            <p class="hint">Demo jugador: demo@pulgasleague.test / 123456</p>
           </form>
         </section>
 
@@ -77,6 +75,17 @@
           <section id="toast" class="toast hidden" role="status"></section>
 
           <section id="dashboardView" class="view active">
+            <section class="panel news-panel">
+              <div class="panel-header">
+                <div>
+                  <h3>Tablon de noticias</h3>
+                  <p>Ultimos movimientos importantes de la liga.</p>
+                </div>
+                <button class="ghost-button" data-refresh>Actualizar</button>
+              </div>
+              <div id="newsList" class="news-list"></div>
+            </section>
+
             <div class="metric-grid">
               <article class="metric-card">
                 <span>Presupuesto</span>
@@ -191,12 +200,16 @@
               <button class="admin-tab" data-admin-section="players" type="button">Jugadores</button>
               <button class="admin-tab" data-admin-section="teams" type="button">Equipos</button>
               <button class="admin-tab" data-admin-section="clubs" type="button">Clubes</button>
+              <button class="admin-tab" data-admin-section="backups" type="button">Backups</button>
             </nav>
             <section class="admin-grid">
               <article class="panel admin-section-panel active" data-admin-section-panel="overview">
                 <div class="panel-header">
                   <h3>Control de liga</h3>
-                  <button id="adminRefreshBtn" class="ghost-button">Actualizar</button>
+                  <div class="row-actions">
+                    <button id="adminRefreshBtn" class="ghost-button" type="button">Actualizar</button>
+                    <button id="resetLeagueBtn" class="mini-button danger" type="button">Reiniciar liga</button>
+                  </div>
                 </div>
                 <form id="settingsForm" class="admin-form">
                   <input id="initialBudgetInput" type="number" min="0" required placeholder="Presupuesto inicial nuevos equipos" />
@@ -264,6 +277,17 @@
                   <button class="primary-button" type="submit">Guardar club</button>
                 </form>
                 <div id="adminClubs" class="admin-list"></div>
+              </article>
+
+              <article class="panel admin-section-panel" data-admin-section-panel="backups">
+                <div class="panel-header">
+                  <div>
+                    <h3>Backups</h3>
+                    <p>Snapshots completos del estado de juego sin borrar cuentas registradas al restaurar.</p>
+                  </div>
+                  <button class="ghost-button" data-create-backup type="button">Crear backup</button>
+                </div>
+                <div id="adminBackups" class="admin-list"></div>
               </article>
 
               <article class="panel wide admin-section-panel" data-admin-section-panel="gameweeks">

@@ -379,6 +379,10 @@ select:focus {
   gap: 14px;
 }
 
+.news-panel {
+  margin-bottom: 14px;
+}
+
 .panel {
   padding: 14px;
 }
@@ -414,6 +418,7 @@ select:focus {
 
 .match-list,
 .player-list,
+.news-list,
 .leaderboard,
 .admin-list,
 .lineup-grid {
@@ -560,12 +565,47 @@ select:focus {
 
 .match-card,
 .player-card,
+.news-item,
 .leader-row,
 .admin-row,
 .lineup-card {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(2, 8, 21, 0.62);
+}
+
+.news-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+}
+
+.news-type {
+  display: inline-flex;
+  min-width: 78px;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(68, 224, 255, 0.42);
+  border-radius: 999px;
+  color: var(--cyan);
+  background: rgba(68, 224, 255, 0.08);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.news-item strong {
+  display: block;
+}
+
+.news-item small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .match-card {

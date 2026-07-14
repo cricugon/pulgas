@@ -6,11 +6,59 @@ import { Lineup } from "../models/Lineup.js";
 import { Player } from "../models/Player.js";
 import { getLeagueSettings } from "../models/Settings.js";
 import { User } from "../models/User.js";
+import { LeagueBackup } from "../models/LeagueBackup.js";
+import { createLeagueBackup, restoreLeagueBackup } from "../services/backups.js";
+import { resetLeague } from "../services/leagueReset.js";
+import { matchLabel, publishNews } from "../services/news.js";
 import { lockGameweekLineups, recalculateGameweek } from "../services/scoring.js";
 
 export const adminRouter = express.Router();
 
 adminRouter.use(requireAuth, requireAdmin);
+
+function formatEuro(value = 0) {
+  return new Intl.NumberFormat("es-ES", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0
+  }).format(Number(value || 0));
+}
+
+function gameweekMatchCount(gameweek) {
+  const count = gameweek.matches?.length || 0;
+  return `${count} ${count === 1 ? "partido programado" : "partidos programados"}`;
+}
+
+async function publishGameweekStatusNews(gameweek, status) {
+  if (status === "live") {
+    await publishNews({
+      type: "gameweek_started",
+      title: `${gameweek.name} esta en juego`,
+      body: `La jornada ha comenzado con ${gameweekMatchCount(gameweek)}. Las alineaciones quedan bloqueadas.`,
+      metadata: { gameweekId: gameweek._id, number: gameweek.number }
+    });
+  }
+
+  if (status === "finished") {
+    await publishNews({
+      type: "gameweek_finished",
+      title: `${gameweek.name} finalizada`,
+      body: "La clasificacion total ya refleja los puntos de esta jornada.",
+      metadata: { gameweekId: gameweek._id, number: gameweek.number }
+    });
+  }
+}
+
+async function publishMatchScoresNews(gameweek, match) {
+  if (!match) return;
+
+  await publishNews({
+    type: "match_scored",
+    title: `Puntuaciones publicadas: ${matchLabel(match)}`,
+    body: `${gameweek.name} ya tiene ${match.playerScores?.length || 0} puntuaciones guardadas para este partido.`,
+    metadata: { gameweekId: gameweek._id, matchId: match._id }
+  });
+}
 
 adminRouter.get("/summary", async (_req, res) => {
   const [users, clubs, players, gameweeks, liveGameweek, settings] = await Promise.all([
@@ -53,6 +101,70 @@ adminRouter.put("/settings", async (req, res) => {
   res.json({ message: "Configuracion actualizada.", settings });
 });
 
+adminRouter.get("/backups", async (_req, res) => {
+  const backups = await LeagueBackup.find({})
+    .select("-snapshot")
+    .sort({ createdAt: -1 })
+    .limit(100);
+
+  res.json({ backups });
+});
+
+adminRouter.post("/backups", async (req, res) => {
+  const backup = await createLeagueBackup({
+    name: req.body.name || "",
+    reason: "manual",
+    createdBy: req.user._id,
+    createdByEmail: req.user.email
+  });
+
+  res.status(201).json({ message: "Backup creado.", backup });
+});
+
+adminRouter.post("/backups/:id/restore", async (req, res) => {
+  if (req.body.confirmation !== "RESTAURAR") {
+    return res.status(400).json({ message: "Confirmacion no valida. Escribe RESTAURAR para restaurar." });
+  }
+
+  try {
+    const result = await restoreLeagueBackup(req.params.id, {
+      restoredBy: req.user._id,
+      restoredByEmail: req.user.email
+    });
+
+    if (!result) {
+      return res.status(404).json({ message: "Backup no encontrado." });
+    }
+
+    res.json({ message: "Backup restaurado. Las cuentas registradas se han conservado.", result });
+  } catch (error) {
+    res.status(500).json({ message: "No se pudo restaurar el backup.", detail: error.message });
+  }
+});
+
+adminRouter.post("/league/reset", async (req, res) => {
+  if (req.body.confirmation !== "REINICIAR") {
+    return res.status(400).json({ message: "Confirmacion no valida. Escribe REINICIAR para reiniciar la liga." });
+  }
+
+  try {
+    const result = await resetLeague({
+      loadDemoData: Boolean(req.body.loadDemoData),
+      preserveUsers: true,
+      includeDemoAccounts: Boolean(req.body.loadDemoData)
+    });
+
+    res.json({
+      message: result.loadDemoData
+        ? "Liga reiniciada y datos demo cargados."
+        : "Liga reiniciada sin datos demo.",
+      result
+    });
+  } catch (error) {
+    res.status(500).json({ message: "No se pudo reiniciar la liga.", detail: error.message });
+  }
+});
+
 adminRouter.get("/players", async (_req, res) => {
   const players = await Player.find({}).populate("club").sort({ name: 1 });
   res.json({ players });
@@ -69,6 +181,13 @@ adminRouter.post("/players", async (req, res) => {
       status: req.body.status || "available",
       shirtNumber: Number(req.body.shirtNumber || 0),
       bio: req.body.bio || ""
+    });
+    await player.populate("club");
+    await publishNews({
+      type: "player_created",
+      title: `Nuevo jugador disponible: ${player.name}`,
+      body: `${player.position} - ${player.club?.shortName || player.club?.name || "Sin club"} - ${formatEuro(player.marketValue)}`,
+      metadata: { playerId: player._id, clubId: player.club?._id || player.club }
     });
 
     res.status(201).json({ message: "Jugador creado.", player });
@@ -225,6 +344,7 @@ adminRouter.put("/gameweeks/:id", async (req, res) => {
 
     const gameweek = await Gameweek.findById(req.params.id);
     if (!gameweek) return res.status(404).json({ message: "Jornada no encontrada." });
+    const previousStatus = gameweek.status;
 
     const requestedStatus = req.body.status;
     if (requestedStatus !== undefined && !["draft", "live", "finished"].includes(requestedStatus)) {
@@ -235,6 +355,16 @@ adminRouter.put("/gameweeks/:id", async (req, res) => {
       const liveGameweek = await Gameweek.findOne({ status: "live", _id: { $ne: gameweek._id } });
       if (liveGameweek) {
         return res.status(400).json({ message: `Finaliza primero ${liveGameweek.name}.` });
+      }
+
+      if (gameweek.status !== "live") {
+        await createLeagueBackup({
+          reason: "before_gameweek_start",
+          createdBy: req.user._id,
+          createdByEmail: req.user.email,
+          gameweek: gameweek._id,
+          gameweekName: gameweek.name
+        });
       }
     }
 
@@ -276,6 +406,9 @@ adminRouter.put("/gameweeks/:id", async (req, res) => {
     const populated = await Gameweek.findById(gameweek._id).populate(
       "matches.homeClub matches.awayClub matches.playerScores.player"
     );
+    if (previousStatus !== populated.status && ["live", "finished"].includes(populated.status)) {
+      await publishGameweekStatusNews(populated, populated.status);
+    }
 
     res.json({ message: "Jornada actualizada.", gameweek: populated });
   } catch (error) {
@@ -294,6 +427,7 @@ adminRouter.delete("/gameweeks/:id", async (req, res) => {
 adminRouter.post("/gameweeks/:id/start", async (req, res) => {
   const gameweek = await Gameweek.findById(req.params.id);
   if (!gameweek) return res.status(404).json({ message: "Jornada no encontrada." });
+  const previousStatus = gameweek.status;
 
   const liveGameweek = await Gameweek.findOne({ status: "live", _id: { $ne: gameweek._id } });
   if (liveGameweek) {
@@ -302,6 +436,16 @@ adminRouter.post("/gameweeks/:id/start", async (req, res) => {
 
   if (gameweek.status === "finished") {
     return res.status(400).json({ message: "No se puede iniciar una jornada finalizada." });
+  }
+
+  if (gameweek.status !== "live") {
+    await createLeagueBackup({
+      reason: "before_gameweek_start",
+      createdBy: req.user._id,
+      createdByEmail: req.user.email,
+      gameweek: gameweek._id,
+      gameweekName: gameweek.name
+    });
   }
 
   gameweek.status = "live";
@@ -316,6 +460,9 @@ adminRouter.post("/gameweeks/:id/start", async (req, res) => {
   const populated = await Gameweek.findById(gameweek._id).populate(
     "matches.homeClub matches.awayClub matches.playerScores.player"
   );
+  if (previousStatus !== "live") {
+    await publishGameweekStatusNews(populated, "live");
+  }
 
   res.json({ message: "Jornada iniciada.", gameweek: populated, lockedLineups });
 });
@@ -323,6 +470,7 @@ adminRouter.post("/gameweeks/:id/start", async (req, res) => {
 adminRouter.post("/gameweeks/:id/finish", async (req, res) => {
   const gameweek = await Gameweek.findById(req.params.id);
   if (!gameweek) return res.status(404).json({ message: "Jornada no encontrada." });
+  const previousStatus = gameweek.status;
 
   gameweek.status = "finished";
   gameweek.endsAt = new Date();
@@ -335,6 +483,9 @@ adminRouter.post("/gameweeks/:id/finish", async (req, res) => {
   const populated = await Gameweek.findById(gameweek._id).populate(
     "matches.homeClub matches.awayClub matches.playerScores.player"
   );
+  if (previousStatus !== "finished") {
+    await publishGameweekStatusNews(populated, "finished");
+  }
 
   res.json({ message: "Jornada finalizada.", gameweek: populated });
 });
@@ -459,6 +610,8 @@ adminRouter.post("/gameweeks/:id/matches/:matchId/scores", async (req, res) => {
     const populated = await Gameweek.findById(gameweek._id).populate(
       "matches.homeClub matches.awayClub matches.playerScores.player"
     );
+    const scoredMatch = populated.matches.id(match._id);
+    await publishMatchScoresNews(populated, scoredMatch);
 
     return res.json({ message: "Puntuaciones del partido guardadas.", gameweek: populated });
   }
@@ -483,6 +636,8 @@ adminRouter.post("/gameweeks/:id/matches/:matchId/scores", async (req, res) => {
   const populated = await Gameweek.findById(gameweek._id).populate(
     "matches.homeClub matches.awayClub matches.playerScores.player"
   );
+  const scoredMatch = populated.matches.id(match._id);
+  await publishMatchScoresNews(populated, scoredMatch);
 
   res.json({ message: "Puntuacion guardada.", gameweek: populated });
 });

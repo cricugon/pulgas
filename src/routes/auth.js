@@ -3,6 +3,7 @@ import express from "express";
 import { signToken, requireAuth } from "../middleware/auth.js";
 import { getLeagueSettings } from "../models/Settings.js";
 import { User } from "../models/User.js";
+import { publishNews } from "../services/news.js";
 
 export const authRouter = express.Router();
 
@@ -51,6 +52,12 @@ authRouter.post("/register", async (req, res) => {
       passwordHash,
       teamName,
       budget: settings.initialBudget
+    });
+    await publishNews({
+      type: "team_registered",
+      title: `Nuevo equipo inscrito: ${teamName}`,
+      body: "La liga suma un nuevo rival en la clasificacion.",
+      metadata: { teamId: user._id, teamName }
     });
     const token = signToken(user);
 

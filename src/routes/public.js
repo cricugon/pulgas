@@ -2,6 +2,7 @@ import express from "express";
 import { Club } from "../models/Club.js";
 import { Gameweek } from "../models/Gameweek.js";
 import { Lineup } from "../models/Lineup.js";
+import { NewsItem } from "../models/NewsItem.js";
 import { Player } from "../models/Player.js";
 import { User } from "../models/User.js";
 import { buildGameweekScoreMap } from "../services/scoring.js";
@@ -37,6 +38,14 @@ function serializeLineupForLeaderboard(lineup, scoreMap, rank) {
 publicRouter.get("/clubs", async (_req, res) => {
   const clubs = await Club.find({}).sort({ name: 1 });
   res.json({ clubs });
+});
+
+publicRouter.get("/news", async (req, res) => {
+  const requestedLimit = Number(req.query.limit || 30);
+  const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : 30, 1), 100);
+  const news = await NewsItem.find({}).sort({ createdAt: -1 }).limit(limit);
+
+  res.json({ news });
 });
 
 publicRouter.get("/players", async (req, res) => {

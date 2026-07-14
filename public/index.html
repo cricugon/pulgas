@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pulgas League</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <button class="brand" data-view="dashboard" aria-label="Ir al panel principal">
+          <span class="brand-mark">PL</span>
+          <span>
+            <strong>Pulgas League</strong>
+            <small>Fantasy football control room</small>
+          </span>
+        </button>
+        <button id="logoutBtn" class="icon-button hidden" title="Cerrar sesion" aria-label="Cerrar sesion">⎋</button>
+      </header>
+
+      <main>
+        <section id="authView" class="auth-view">
+          <div class="auth-visual">
+            <p class="eyebrow">Mercado, jornadas y puntos en vivo</p>
+            <h1>Construye tu equipo y gana cada jornada.</h1>
+            <p>
+              Ficha jugadores, prepara tu alineacion con presupuesto limitado y escala en la
+              clasificacion general.
+            </p>
+          </div>
+
+          <form id="authForm" class="auth-card">
+            <div class="segmented">
+              <button type="button" id="loginTab" class="active">Entrar</button>
+              <button type="button" id="registerTab">Registro</button>
+            </div>
+            <label>
+              Email
+              <input id="emailInput" type="email" autocomplete="email" required placeholder="tu@email.com" />
+            </label>
+            <label>
+              Password
+              <input id="passwordInput" type="password" autocomplete="current-password" required placeholder="Minimo 6 caracteres" />
+            </label>
+            <label id="teamNameField" class="hidden">
+              Nombre del equipo
+              <input id="teamNameInput" type="text" placeholder="Pulgas FC" />
+            </label>
+            <button class="primary-button" type="submit">Continuar</button>
+            <p class="hint">Demo admin: admin@pulgasleague.test / 123456</p>
+            <p class="hint">Demo jugador: demo@pulgasleague.test / 123456</p>
+          </form>
+        </section>
+
+        <section id="appView" class="hidden">
+          <section class="hero-panel">
+            <div>
+              <p class="eyebrow" id="seasonStatus">Cargando jornada</p>
+              <h2 id="teamTitle">Tu equipo</h2>
+              <p id="teamSubtitle">Mercado abierto, alineacion pendiente.</p>
+            </div>
+            <div class="live-badge">
+              <span></span>
+              <strong id="liveBadgeText">LIVE</strong>
+            </div>
+          </section>
+
+          <nav class="tabs" aria-label="Navegacion principal">
+            <button class="tab active" data-view="dashboard">Inicio</button>
+            <button class="tab" data-view="market">Mercado</button>
+            <button class="tab" data-view="lineup">Alineacion</button>
+            <button class="tab" data-view="leaderboard">Liga</button>
+            <button id="adminTab" class="tab hidden" data-view="admin">Admin</button>
+          </nav>
+
+          <section id="toast" class="toast hidden" role="status"></section>
+
+          <section id="dashboardView" class="view active">
+            <div class="metric-grid">
+              <article class="metric-card">
+                <span>Presupuesto</span>
+                <strong id="budgetMetric">0 €</strong>
+              </article>
+              <article class="metric-card">
+                <span>Puntos</span>
+                <strong id="pointsMetric">0</strong>
+              </article>
+              <article class="metric-card">
+                <span>Jugadores liga</span>
+                <strong id="squadMetric">0</strong>
+              </article>
+            </div>
+
+            <div class="split-layout">
+              <section class="panel">
+                <div class="panel-header">
+                  <h3>Jornada activa</h3>
+                  <button class="ghost-button" data-refresh>Actualizar</button>
+                </div>
+                <div id="matchesList" class="match-list"></div>
+              </section>
+
+              <section class="panel">
+                <div class="panel-header">
+                  <h3>Alineacion</h3>
+                  <span id="squadValue" class="pill">0 €</span>
+                </div>
+                <div id="squadList" class="player-list compact"></div>
+              </section>
+            </div>
+          </section>
+
+          <section id="marketView" class="view">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <h3>Mercado de jugadores</h3>
+                  <p>Consulta valores, puntos y estadisticas por jornada.</p>
+                </div>
+                <div class="filters">
+                  <select id="positionFilter" aria-label="Filtrar por posicion">
+                    <option value="">Todas</option>
+                    <option value="POR">POR</option>
+                    <option value="DEF">DEF</option>
+                    <option value="MED">MED</option>
+                    <option value="DEL">DEL</option>
+                  </select>
+                  <input id="playerSearch" type="search" placeholder="Buscar jugador" />
+                  <input id="minPointsFilter" type="number" placeholder="Puntos min." />
+                  <input id="maxPriceFilter" type="number" min="0" placeholder="Precio max." />
+                  <select id="marketSort" aria-label="Ordenar mercado">
+                    <option value="points">Mas puntos</option>
+                    <option value="priceDesc">Precio alto</option>
+                    <option value="priceAsc">Precio bajo</option>
+                    <option value="name">Nombre</option>
+                  </select>
+                </div>
+              </div>
+              <div id="marketList" class="player-list"></div>
+            </section>
+          </section>
+
+          <section id="lineupView" class="view">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <h3>Alineacion de jornada</h3>
+                  <p id="lineupHelp">Selecciona 7 jugadores contando el portero.</p>
+                </div>
+                <span id="lineupCap" class="pill">0 / 0 €</span>
+              </div>
+              <form id="lineupForm">
+                <div class="lineup-toolbar">
+                  <label>
+                    Formacion
+                    <select id="formationSelect" aria-label="Elegir formacion"></select>
+                  </label>
+                  <span id="lineupCount" class="pill">0 puestos</span>
+                </div>
+                <div id="lineupPlayers" class="tactical-pitch"></div>
+                <button class="primary-button full-width" type="submit">Guardar alineacion</button>
+              </form>
+            </section>
+          </section>
+
+          <section id="leaderboardView" class="view">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <h3>Clasificacion</h3>
+                  <p>Total, jornada activa e historico de alineaciones.</p>
+                </div>
+                <button class="ghost-button" data-refresh>Actualizar</button>
+              </div>
+              <div class="segmented leaderboard-switch" role="tablist" aria-label="Tipo de clasificacion">
+                <button class="active" data-leaderboard-mode="total" type="button">Total</button>
+                <button data-leaderboard-mode="current" type="button">Jornada</button>
+                <button data-leaderboard-mode="history" type="button">Historico</button>
+              </div>
+              <div id="leaderboardList" class="leaderboard"></div>
+              <div id="gameweekLeaderboardList" class="leaderboard hidden"></div>
+              <div id="historyGameweeksList" class="history-list hidden"></div>
+            </section>
+          </section>
+
+          <section id="adminView" class="view">
+            <nav class="admin-tabs" aria-label="Secciones de administracion">
+              <button class="admin-tab active" data-admin-section="overview" type="button">Resumen</button>
+              <button class="admin-tab" data-admin-section="gameweeks" type="button">Jornadas</button>
+              <button class="admin-tab" data-admin-section="players" type="button">Jugadores</button>
+              <button class="admin-tab" data-admin-section="teams" type="button">Equipos</button>
+              <button class="admin-tab" data-admin-section="clubs" type="button">Clubes</button>
+            </nav>
+            <section class="admin-grid">
+              <article class="panel admin-section-panel active" data-admin-section-panel="overview">
+                <div class="panel-header">
+                  <h3>Control de liga</h3>
+                  <button id="adminRefreshBtn" class="ghost-button">Actualizar</button>
+                </div>
+                <form id="settingsForm" class="admin-form">
+                  <input id="initialBudgetInput" type="number" min="0" required placeholder="Presupuesto inicial nuevos equipos" />
+                  <button class="primary-button" type="submit">Guardar presupuesto inicial</button>
+                </form>
+                <div id="adminSummary" class="metric-grid mini"></div>
+              </article>
+
+              <article class="panel admin-section-panel" data-admin-section-panel="players">
+                <div class="panel-header">
+                  <h3>Jugadores</h3>
+                  <button class="ghost-button" data-open-modal="player" type="button">Nuevo jugador</button>
+                </div>
+                <form id="playerForm" class="admin-form modal-form hidden">
+                  <input type="hidden" id="playerIdInput" />
+                  <input id="playerNameInput" required placeholder="Nombre" />
+                  <select id="playerPositionInput" required>
+                    <option value="POR">POR</option>
+                    <option value="DEF">DEF</option>
+                    <option value="MED">MED</option>
+                    <option value="DEL">DEL</option>
+                  </select>
+                  <select id="playerClubInput" required></select>
+                  <input id="playerValueInput" type="number" min="0" required placeholder="Valor" />
+                  <input id="playerFormInput" type="number" min="0" max="100" placeholder="Forma" />
+                  <select id="playerStatusInput">
+                    <option value="available">Disponible</option>
+                    <option value="injured">Lesionado</option>
+                    <option value="suspended">Sancionado</option>
+                  </select>
+                  <button class="primary-button" type="submit">Guardar jugador</button>
+                  <button id="playerResetBtn" class="ghost-button" type="button">Limpiar</button>
+                </form>
+                <div id="adminPlayers" class="admin-list"></div>
+              </article>
+
+              <article class="panel admin-section-panel" data-admin-section-panel="teams">
+                <div class="panel-header">
+                  <h3>Equipos de usuarios</h3>
+                  <span class="pill">Suspender · editar · borrar</span>
+                </div>
+                <form id="teamForm" class="admin-form modal-form hidden">
+                  <input type="hidden" id="teamIdInput" />
+                  <input id="teamNameEditInput" required placeholder="Nombre del equipo" />
+                  <input id="teamBudgetInput" type="number" min="0" required placeholder="Presupuesto" />
+                  <select id="teamStatusInput">
+                    <option value="active">Activo</option>
+                    <option value="suspended">Suspendido</option>
+                  </select>
+                  <button class="primary-button" type="submit">Guardar equipo</button>
+                </form>
+                <div id="adminTeams" class="admin-list"></div>
+              </article>
+
+              <article class="panel admin-section-panel" data-admin-section-panel="clubs">
+                <div class="panel-header">
+                  <h3>Clubes reales</h3>
+                  <button class="ghost-button" data-open-modal="club" type="button">Nuevo club</button>
+                </div>
+                <form id="clubForm" class="admin-form modal-form hidden">
+                  <input type="hidden" id="clubIdInput" />
+                  <input id="clubNameInput" required placeholder="Club" />
+                  <input id="clubShortInput" required maxlength="5" placeholder="SIGLAS" />
+                  <input id="clubCityInput" placeholder="Ciudad" />
+                  <button class="primary-button" type="submit">Guardar club</button>
+                </form>
+                <div id="adminClubs" class="admin-list"></div>
+              </article>
+
+              <article class="panel wide admin-section-panel" data-admin-section-panel="gameweeks">
+                <div class="panel-header">
+                  <h3>Jornadas y partidos</h3>
+                  <div class="row-actions">
+                    <button class="ghost-button" data-open-modal="gameweek" type="button">Nueva jornada</button>
+                    <button class="ghost-button" data-open-modal="match" type="button">Nuevo partido</button>
+                    <button class="ghost-button" data-open-modal="score" type="button">Puntuar</button>
+                  </div>
+                  <span class="pill">Crear · iniciar · puntuar · finalizar</span>
+                </div>
+                <form id="gameweekForm" class="admin-form modal-form hidden">
+                  <input type="hidden" id="gwIdInput" />
+                  <input id="gwNumberInput" type="number" min="1" required placeholder="Numero" />
+                  <input id="gwNameInput" placeholder="Nombre de jornada" />
+                  <input id="gwCapInput" type="number" min="0" placeholder="Limite alineacion" />
+                  <select id="gwStatusInput">
+                    <option value="draft">Borrador</option>
+                    <option value="live">En juego</option>
+                    <option value="finished">Finalizada</option>
+                  </select>
+                  <button id="gwSubmitBtn" class="primary-button" type="submit">Guardar jornada</button>
+                  <button id="gwResetBtn" class="ghost-button" type="button">Limpiar jornada</button>
+                </form>
+                <form id="matchForm" class="admin-form modal-form hidden">
+                  <input type="hidden" id="matchIdInput" />
+                  <select id="matchGameweekInput" required></select>
+                  <select id="matchHomeInput" required></select>
+                  <select id="matchAwayInput" required></select>
+                  <select id="matchStatusInput">
+                    <option value="scheduled">Programado</option>
+                    <option value="live">En juego</option>
+                    <option value="finished">Finalizado</option>
+                  </select>
+                  <button id="matchSubmitBtn" class="primary-button" type="submit">Guardar partido</button>
+                  <button id="matchResetBtn" class="ghost-button" type="button">Limpiar partido</button>
+                </form>
+                <form id="scoreForm" class="admin-form modal-form hidden">
+                  <input type="hidden" id="scoreGameweekInput" />
+                  <div id="scoreActiveInfo" class="score-active-info"></div>
+                  <label>
+                    Partido
+                    <select id="scoreMatchInput" required></select>
+                  </label>
+                  <div id="scorePlayersList" class="score-player-list"></div>
+                  <button class="primary-button" type="submit">Guardar puntuaciones</button>
+                </form>
+                <div id="adminGameweeks" class="admin-list gameweeks"></div>
+              </article>
+            </section>
+            <div id="adminModal" class="admin-modal hidden" role="dialog" aria-modal="true" aria-labelledby="adminModalTitle">
+              <div class="admin-modal-card">
+                <div class="panel-header">
+                  <h3 id="adminModalTitle">Editar</h3>
+                  <button class="icon-button" data-close-modal type="button" aria-label="Cerrar">x</button>
+                </div>
+                <div id="adminModalBody"></div>
+              </div>
+            </div>
+          </section>
+          <div id="lineupDetailModal" class="admin-modal hidden" role="dialog" aria-modal="true" aria-labelledby="lineupDetailTitle">
+            <div class="admin-modal-card lineup-detail-modal">
+              <div class="panel-header">
+                <h3 id="lineupDetailTitle">Alineacion</h3>
+                <button class="icon-button" data-close-lineup-detail type="button" aria-label="Cerrar">x</button>
+              </div>
+              <div id="lineupDetailBody"></div>
+            </div>
+          </div>
+          <div id="playerDetailModal" class="admin-modal hidden" role="dialog" aria-modal="true" aria-labelledby="playerDetailTitle">
+            <div class="admin-modal-card player-detail-modal">
+              <div class="panel-header">
+                <h3 id="playerDetailTitle">Jugador</h3>
+                <button class="icon-button" data-close-player-detail type="button" aria-label="Cerrar">x</button>
+              </div>
+              <div id="playerDetailBody"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/js/app.js" type="module"></script>
+  </body>
+</html>

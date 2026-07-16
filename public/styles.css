@@ -921,7 +921,7 @@ button.leader-row:hover {
 .score-team-table {
   display: grid;
   gap: 8px;
-  overflow-x: auto;
+  overflow-x: visible;
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -935,7 +935,7 @@ button.leader-row:hover {
   gap: 8px;
   align-items: center;
   justify-content: space-between;
-  min-width: 760px;
+  min-width: 0;
 }
 
 .score-team-title span {
@@ -947,10 +947,10 @@ button.leader-row:hover {
 .score-table-head,
 .score-stat-row {
   display: grid;
-  grid-template-columns: minmax(190px, 1.45fr) 72px repeat(5, 76px) 82px;
+  grid-template-columns: minmax(220px, 2fr) 72px repeat(5, minmax(62px, 0.52fr)) 72px;
   gap: 8px;
   align-items: center;
-  min-width: 760px;
+  min-width: 0;
 }
 
 .score-table-head {
@@ -999,6 +999,7 @@ button.leader-row:hover {
 .score-number {
   min-height: 36px;
   padding: 0 6px;
+  width: 100%;
   text-align: center;
   font-weight: 900;
 }
@@ -1110,6 +1111,20 @@ button.leader-row:hover {
   box-shadow: var(--shadow);
 }
 
+.admin-modal.score-modal-open {
+  place-items: stretch center;
+  padding: 12px;
+}
+
+.admin-modal.score-modal-open .admin-modal-card {
+  width: min(1560px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+}
+
+#scoreForm.modal-form.active {
+  grid-template-columns: 1fr;
+}
+
 .admin-row {
   grid-template-columns: 1fr;
   align-items: stretch;
@@ -1183,6 +1198,18 @@ button.leader-row:hover {
   }
 }
 
+@media (max-width: 759px) {
+  .score-team-table {
+    overflow-x: auto;
+  }
+
+  .score-team-title,
+  .score-table-head,
+  .score-stat-row {
+    min-width: 760px;
+  }
+}
+
 @media (min-width: 760px) {
   .app-shell {
     padding: 22px;
@@ -1212,6 +1239,10 @@ button.leader-row:hover {
 
   .admin-form {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  #scoreForm.modal-form.active {
+    grid-template-columns: 1fr;
   }
 }
 

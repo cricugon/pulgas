@@ -1013,6 +1013,7 @@ function openAdminModal(kind, title) {
   });
 
   els.adminModalTitle.textContent = title || "Editar";
+  els.adminModal.classList.toggle("score-modal-open", kind === "score");
   els.adminModalBody.appendChild(form);
   form.classList.remove("hidden");
   form.classList.add("active");
@@ -1022,6 +1023,7 @@ function openAdminModal(kind, title) {
 
 function closeAdminModal() {
   els.adminModal.classList.add("hidden");
+  els.adminModal.classList.remove("score-modal-open");
   $$(".modal-form").forEach((item) => {
     item.classList.add("hidden");
     item.classList.remove("active");

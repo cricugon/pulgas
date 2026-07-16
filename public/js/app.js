@@ -46,6 +46,7 @@ const els = {
   emailInput: $("#emailInput"),
   passwordInput: $("#passwordInput"),
   teamNameInput: $("#teamNameInput"),
+  profileTopBtn: $("#profileTopBtn"),
   logoutBtn: $("#logoutBtn"),
   adminTab: $("#adminTab"),
   toast: $("#toast"),
@@ -362,6 +363,7 @@ function setAuthMode(mode) {
 function setView(view) {
   state.activeView = view;
   $$(".tab").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
+  els.profileTopBtn?.classList.toggle("active", view === "profile");
   $$(".view").forEach((section) => section.classList.remove("active"));
   $(`#${view}View`)?.classList.add("active");
 
@@ -390,6 +392,7 @@ function renderShell() {
   els.authView.classList.toggle("hidden", isLoggedIn);
   els.appView.classList.toggle("hidden", !isLoggedIn);
   els.logoutBtn.classList.toggle("hidden", !isLoggedIn);
+  els.profileTopBtn?.classList.toggle("hidden", !isLoggedIn || state.user?.role === "admin");
 
   if (!isLoggedIn) return;
 

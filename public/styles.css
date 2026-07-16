@@ -67,7 +67,12 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 0 18px;
+  gap: 8px;
+  margin: -16px -16px 0;
+  padding: 12px 16px 14px;
+  border-bottom: 1px solid rgba(151, 181, 255, 0.14);
+  background: rgba(5, 9, 20, 0.98);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.3);
   backdrop-filter: blur(18px);
 }
 
@@ -75,6 +80,7 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-right: auto;
   border: 0;
   color: var(--text);
   background: transparent;
@@ -111,6 +117,32 @@ button {
 .icon-button {
   width: 42px;
   background: rgba(255, 255, 255, 0.06);
+}
+
+#logoutBtn {
+  order: 3;
+}
+
+.profile-top-button {
+  order: 2;
+  display: none;
+  place-items: center;
+}
+
+.profile-top-button svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.profile-top-button.active {
+  border-color: rgba(68, 224, 255, 0.52);
+  color: var(--cyan);
+  background: rgba(68, 224, 255, 0.12);
 }
 
 .ghost-button {
@@ -324,7 +356,10 @@ textarea:focus {
   margin: 14px -16px 16px;
   padding: 0 16px 10px;
   overflow-x: auto;
-  background: linear-gradient(180deg, rgba(5, 9, 20, 0.96), rgba(5, 9, 20, 0));
+  border-bottom: 1px solid rgba(151, 181, 255, 0.12);
+  background: linear-gradient(180deg, rgba(5, 9, 20, 0.98), rgba(5, 9, 20, 0.94));
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(18px);
 }
 
 .tab {
@@ -1627,6 +1662,14 @@ button.leader-row:hover {
 }
 
 @media (max-width: 640px) {
+  .profile-top-button:not(.hidden) {
+    display: inline-grid;
+  }
+
+  .tab[data-view="profile"] {
+    display: none;
+  }
+
   .rules-banner {
     top: 118px;
     align-items: flex-start;

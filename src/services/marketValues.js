@@ -170,6 +170,7 @@ function calculatedValue(oldValue, changeRate) {
 export async function updateMarketValuesAfterGameweek(gameweekId) {
   const gameweek = await Gameweek.findById(gameweekId).lean();
   if (!gameweek) return { updated: 0, unchanged: 0, updates: [] };
+  const marketValueUpdatedAt = new Date();
 
   const [players, clubs, activeUsers, usageMap, nextGameweek] = await Promise.all([
     Player.find({}).lean(),
@@ -186,6 +187,8 @@ export async function updateMarketValuesAfterGameweek(gameweekId) {
   const nextOpponentMap = buildNextOpponentMap(nextGameweek);
   const updates = [];
   let unchanged = 0;
+
+  await Player.updateMany({}, { $set: { marketValueChange: 0, marketValueUpdatedAt } });
 
   for (const player of players) {
     const id = player._id.toString();
@@ -223,7 +226,17 @@ export async function updateMarketValuesAfterGameweek(gameweekId) {
       continue;
     }
 
-    await Player.updateOne({ _id: player._id }, { $set: { marketValue: newValue } });
+    await Player.updateOne(
+      { _id: player._id },
+      {
+        $set: {
+          previousMarketValue: oldValue,
+          marketValue: newValue,
+          marketValueChange: newValue - oldValue,
+          marketValueUpdatedAt
+        }
+      }
+    );
     updates.push({
       player: player._id,
       name: player.name,

@@ -5,7 +5,7 @@ import { Lineup } from "../models/Lineup.js";
 import { NewsItem } from "../models/NewsItem.js";
 import { Player } from "../models/Player.js";
 import { User } from "../models/User.js";
-import { buildGameweekScoreMap } from "../services/scoring.js";
+import { buildGameweekScoreMap, buildPlayerMatchBreakdown } from "../services/scoring.js";
 
 export const publicRouter = express.Router();
 
@@ -32,6 +32,28 @@ function serializeLineupForLeaderboard(lineup, scoreMap, rank) {
     players: (lineup.players || [])
       .map((player) => serializePlayerForLineup(player, scoreMap))
       .filter(Boolean)
+  };
+}
+
+function sameId(a, b) {
+  return String(a?._id || a || "") === String(b?._id || b || "");
+}
+
+function serializePlayerScoreDetail(player, match, score) {
+  if (!score || !match) return null;
+
+  const breakdown = buildPlayerMatchBreakdown(player, match, score);
+  return {
+    played: Boolean(score.played),
+    points: Number(score.points || 0),
+    calculatedPoints: breakdown.total,
+    goalsAgainst: breakdown.goalsAgainst,
+    commonGoals: Number(score.commonGoals || 0),
+    specialGoals: Number(score.specialGoals || 0),
+    assists: Number(score.assists || 0),
+    penaltySaves: Number(score.penaltySaves || 0),
+    picas: Number(score.picas || 0),
+    lines: breakdown.lines
   };
 }
 
@@ -80,6 +102,7 @@ publicRouter.get("/players/:id/stats", async (req, res) => {
       const awayClubId = match.awayClub?._id?.toString?.() || match.awayClub?.toString();
       return homeClubId === playerClubId || awayClubId === playerClubId;
     });
+    const playerScore = playerMatch?.playerScores?.find((score) => sameId(score.player, player._id));
 
     return {
       gameweekId: gameweek._id,
@@ -88,6 +111,7 @@ publicRouter.get("/players/:id/stats", async (req, res) => {
       status: gameweek.status,
       points: scoreMap.get(player._id.toString()) || 0,
       usedBy: usageMap.get(gameweek._id.toString()) || 0,
+      score: serializePlayerScoreDetail(player, playerMatch, playerScore),
       match: playerMatch
         ? {
             id: playerMatch._id,

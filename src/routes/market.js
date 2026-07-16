@@ -1,5 +1,7 @@
 import express from "express";
 import { requireAuth, requireTeamUser } from "../middleware/auth.js";
+import { Gameweek } from "../models/Gameweek.js";
+import { Lineup } from "../models/Lineup.js";
 import { Player } from "../models/Player.js";
 import { User } from "../models/User.js";
 
@@ -8,12 +10,34 @@ export const marketRouter = express.Router();
 marketRouter.use(requireAuth, requireTeamUser);
 
 marketRouter.get("/", async (req, res) => {
-  const user = await User.findById(req.user._id).select("budget");
-  const players = await Player.find({}).populate("club").sort({ marketValue: -1, name: 1 });
+  const [user, players, totalUsage, latestGameweek] = await Promise.all([
+    User.findById(req.user._id).select("budget"),
+    Player.find({}).populate("club").sort({ marketValue: -1, name: 1 }),
+    Lineup.aggregate([{ $unwind: "$players" }, { $group: { _id: "$players", count: { $sum: 1 } } }]),
+    Gameweek.findOne({ status: { $in: ["live", "finished"] } }).sort({ number: -1 }).select("_id number name status")
+  ]);
+
+  const latestUsage = latestGameweek
+    ? await Lineup.aggregate([
+        { $match: { gameweek: latestGameweek._id } },
+        { $unwind: "$players" },
+        { $group: { _id: "$players", count: { $sum: 1 } } }
+      ])
+    : [];
+  const usageMap = new Map(totalUsage.map((row) => [row._id.toString(), row.count]));
+  const latestUsageMap = new Map(latestUsage.map((row) => [row._id.toString(), row.count]));
 
   res.json({
     budget: user.budget,
-    players
+    latestUsageGameweek: latestGameweek,
+    players: players.map((player) => {
+      const id = player._id.toString();
+      return {
+        ...player.toObject(),
+        lineupUsage: usageMap.get(id) || 0,
+        latestLineupUsage: latestUsageMap.get(id) || 0
+      };
+    })
   });
 });
 

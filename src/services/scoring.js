@@ -58,6 +58,71 @@ export function calculatePlayerMatchPoints(player, match, stats = {}) {
   return points;
 }
 
+export function buildPlayerMatchBreakdown(player, match, stats = {}) {
+  const position = player.position;
+  const goalsAgainst = goalsAgainstForPlayer(player, match);
+  const commonGoals = normalizeScoreStat(stats.commonGoals) ?? 0;
+  const specialGoals = normalizeScoreStat(stats.specialGoals) ?? 0;
+  const assists = normalizeScoreStat(stats.assists) ?? 0;
+  const penaltySaves = normalizeScoreStat(stats.penaltySaves) ?? 0;
+  const picas = normalizeScoreStat(stats.picas, { max: 3 }) ?? 0;
+  const isDefensive = position === "POR" || position === "DEF";
+
+  if (!stats.played) {
+    return {
+      played: false,
+      goalsAgainst,
+      total: 0,
+      lines: [{ label: "No jugo", detail: "Sin puntuacion de partido", points: 0 }]
+    };
+  }
+
+  const lines = [];
+  const basePoints = BASE_POINTS[position] || 0;
+  lines.push({ label: "Base", detail: `Puntuacion inicial ${position}`, points: basePoints });
+
+  if (commonGoals > 0) {
+    const goalValue = isDefensive ? 4 : 3;
+    lines.push({ label: "Goles en juego", detail: `${commonGoals} x ${goalValue}`, points: commonGoals * goalValue });
+  }
+
+  if (specialGoals > 0) {
+    lines.push({ label: "Penalti/dado", detail: `${specialGoals} x 2`, points: specialGoals * 2 });
+  }
+
+  if (assists > 0) {
+    lines.push({ label: "Asistencias", detail: `${assists} x 1`, points: assists });
+  }
+
+  if (position === "POR" && penaltySaves > 0) {
+    lines.push({ label: "Penaltis parados", detail: `${penaltySaves} x 3`, points: penaltySaves * 3 });
+  }
+
+  if (picas > 0) {
+    lines.push({ label: "Picas", detail: `${picas} x 2`, points: picas * 2 });
+  }
+
+  if (isDefensive) {
+    if (goalsAgainst === 0) {
+      lines.push({
+        label: "Porteria a cero",
+        detail: position === "POR" ? "Portero" : "Defensa",
+        points: position === "POR" ? 5 : 3
+      });
+    } else {
+      const penalty = Math.floor(goalsAgainst / 2);
+      lines.push({ label: "Goles encajados", detail: `${goalsAgainst} encajados`, points: -penalty });
+    }
+  }
+
+  return {
+    played: true,
+    goalsAgainst,
+    total: lines.reduce((sum, line) => sum + Number(line.points || 0), 0),
+    lines
+  };
+}
+
 export function buildGameweekScoreMap(gameweek) {
   const scores = new Map();
 

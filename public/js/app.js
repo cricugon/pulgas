@@ -6,6 +6,7 @@ const state = {
   players: [],
   clubs: [],
   marketPlayers: [],
+  marketMode: "all",
   gameweeks: [],
   news: [],
   activeGameweek: null,
@@ -60,6 +61,7 @@ const els = {
   minPointsFilter: $("#minPointsFilter"),
   maxPriceFilter: $("#maxPriceFilter"),
   marketSort: $("#marketSort"),
+  marketModeHint: $("#marketModeHint"),
   lineupForm: $("#lineupForm"),
   formationSelect: $("#formationSelect"),
   lineupPlayers: $("#lineupPlayers"),
@@ -75,6 +77,9 @@ const els = {
   playerDetailModal: $("#playerDetailModal"),
   playerDetailTitle: $("#playerDetailTitle"),
   playerDetailBody: $("#playerDetailBody"),
+  matchDetailModal: $("#matchDetailModal"),
+  matchDetailTitle: $("#matchDetailTitle"),
+  matchDetailBody: $("#matchDetailBody"),
   adminSummary: $("#adminSummary"),
   adminRefreshBtn: $("#adminRefreshBtn"),
   resetLeagueBtn: $("#resetLeagueBtn"),
@@ -210,6 +215,11 @@ function formatEuro(value = 0) {
   }).format(value);
 }
 
+function formatSignedEuro(value = 0) {
+  const amount = Number(value || 0);
+  return `${amount > 0 ? "+" : ""}${formatEuro(amount)}`;
+}
+
 function formatPoints(value = 0) {
   const points = Number(value || 0);
   return `${points > 0 ? "+" : ""}${points} pts`;
@@ -239,6 +249,26 @@ function initials(name = "") {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+}
+
+function marketChangeBadge(player) {
+  const change = Number(player?.marketValueChange || 0);
+  if (!change) return "";
+
+  const direction = change > 0 ? "positive-change" : "negative-change";
+  return `<span class="market-change ${direction}">${formatSignedEuro(change)}</span>`;
+}
+
+function playerMillions(player) {
+  return Math.max(Number(player?.marketValue || 0) / 1000000, 1);
+}
+
+function valueEfficiency(player) {
+  return Number(player?.totalPoints || 0) / playerMillions(player);
+}
+
+function undervaluedScore(player) {
+  return Number(player?.totalPoints || 0) * 1.35 - playerMillions(player);
 }
 
 function showToast(message, type = "info") {
@@ -393,17 +423,123 @@ function renderActiveGameweek() {
         .join(" · ");
 
       return `
-        <article class="match-card">
+        <button class="match-card match-card-button" type="button" data-match-detail="${match._id}">
           <div class="match-teams">
             <span>${escapeHtml(match.homeClub?.shortName || "LOC")}</span>
             <strong>${match.homeScore ?? "-"} : ${match.awayScore ?? "-"}</strong>
             <span>${escapeHtml(match.awayClub?.shortName || "VIS")}</span>
           </div>
           <div class="score-line">${escapeHtml(match.status)}${scores ? ` · ${scores}` : ""}</div>
-        </article>
+        </button>
       `;
     })
     .join("") || `<p class="hint">Esta jornada aun no tiene partidos.</p>`;
+}
+
+function objectId(value) {
+  return value?._id?.toString?.() || value?.toString?.() || String(value || "");
+}
+
+function matchById(matchId) {
+  return (state.activeGameweek?.matches || []).find((match) => objectId(match._id) === String(matchId));
+}
+
+function scorePlayerClubId(score) {
+  return objectId(score.player?.club);
+}
+
+function scoreClass(points) {
+  return points > 0 ? "positive" : points < 0 ? "negative" : "";
+}
+
+function matchScoresForClub(match, club) {
+  const clubId = objectId(club);
+  return (match.playerScores || [])
+    .filter((score) => scorePlayerClubId(score) === clubId)
+    .slice()
+    .sort((a, b) => {
+      if (Boolean(b.played) !== Boolean(a.played)) return Number(b.played) - Number(a.played);
+      return Number(b.points || 0) - Number(a.points || 0) || String(a.player?.name || "").localeCompare(String(b.player?.name || ""));
+    });
+}
+
+function renderMatchScoreRows(match, club) {
+  const rows = matchScoresForClub(match, club);
+  if (!rows.length) return `<p class="hint">Sin puntuaciones guardadas para este equipo.</p>`;
+
+  return rows
+    .map((score) => {
+      const stats = [
+        ["Goles", score.commonGoals || 0],
+        ["Pen/Dado", score.specialGoals || 0],
+        ["Asist.", score.assists || 0],
+        ["Pen. par.", score.penaltySaves || 0],
+        ["Picas", score.picas || 0]
+      ];
+
+      return `
+        <article class="match-score-row ${score.played ? "" : "not-played"}">
+          <div class="match-score-player">
+            <strong>${escapeHtml(score.player?.name || "Jugador")}</strong>
+            <small>${escapeHtml(score.player?.position || "-")} · ${score.played ? "Jugado" : "No jugo"}</small>
+          </div>
+          <strong class="match-score-points ${scoreClass(Number(score.points || 0))}">${formatPoints(score.points)}</strong>
+          <div class="match-score-stats">
+            ${stats
+              .map(
+                ([label, value]) => `
+                  <span class="match-score-stat">
+                    <small>${escapeHtml(label)}</small>
+                    <strong>${value}</strong>
+                  </span>
+                `
+              )
+              .join("")}
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function setMatchDetailTeam(team) {
+  els.matchDetailBody.querySelectorAll("[data-match-team]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.matchTeam === team);
+  });
+  els.matchDetailBody.querySelectorAll("[data-match-team-panel]").forEach((panel) => {
+    panel.classList.toggle("hidden", panel.dataset.matchTeamPanel !== team);
+  });
+}
+
+function openMatchDetail(matchId) {
+  const match = matchById(matchId);
+  if (!match) return;
+
+  const homeName = match.homeClub?.shortName || match.homeClub?.name || "LOC";
+  const awayName = match.awayClub?.shortName || match.awayClub?.name || "VIS";
+  els.matchDetailTitle.textContent = `${homeName} ${match.homeScore ?? "-"}:${match.awayScore ?? "-"} ${awayName}`;
+  els.matchDetailBody.innerHTML = `
+    <div class="match-detail-score">
+      <span>${escapeHtml(match.homeClub?.name || homeName)}</span>
+      <strong>${match.homeScore ?? "-"} : ${match.awayScore ?? "-"}</strong>
+      <span>${escapeHtml(match.awayClub?.name || awayName)}</span>
+    </div>
+    <div class="match-detail-tabs" role="tablist">
+      <button class="active" data-match-team="home" type="button">${escapeHtml(homeName)}</button>
+      <button data-match-team="away" type="button">${escapeHtml(awayName)}</button>
+    </div>
+    <div class="match-team-panel" data-match-team-panel="home">
+      <div class="match-score-list">${renderMatchScoreRows(match, match.homeClub)}</div>
+    </div>
+    <div class="match-team-panel hidden" data-match-team-panel="away">
+      <div class="match-score-list">${renderMatchScoreRows(match, match.awayClub)}</div>
+    </div>
+  `;
+  els.matchDetailModal.classList.remove("hidden");
+}
+
+function closeMatchDetail() {
+  els.matchDetailModal.classList.add("hidden");
 }
 
 function renderSquad() {
@@ -422,12 +558,16 @@ function renderPlayerCard(player, options = {}) {
   const club = player.club?.shortName || player.club?.name || "FA";
   const tag = options.market ? "button" : "article";
   const attrs = options.market ? `type="button" data-player-detail="${player._id}"` : "";
+  const marketMeta = options.market
+    ? `<small class="market-extra">${Number(player.lineupUsage || 0)} usos · ${valueEfficiency(player).toFixed(2)} pts/M ${marketChangeBadge(player)}</small>`
+    : "";
 
   return `
     <${tag} class="player-card ${options.market ? "market-player-card" : ""}" ${attrs}>
       <div class="avatar">${initials(player.name)}</div>
       <div class="player-main">
         <strong>${escapeHtml(player.name)}</strong>
+        ${marketMeta}
         <small>${escapeHtml(player.position)} · ${escapeHtml(club)} · ${formatEuro(player.marketValue)} · ${player.totalPoints || 0} pts</small>
       </div>
       ${options.market ? `<span class="pill">Ficha</span>` : ""}
@@ -494,21 +634,64 @@ function renderMarket() {
   const minPoints = els.minPointsFilter.value === "" ? null : Number(els.minPointsFilter.value);
   const maxPrice = els.maxPriceFilter.value === "" ? null : Number(els.maxPriceFilter.value);
   const sort = els.marketSort.value;
-  const list = state.marketPlayers
-    .filter((player) => {
-      const club = player.club?.name || player.club?.shortName || "";
-      const matchesPosition = !position || player.position === position;
-      const matchesSearch = !search || `${player.name} ${club}`.toLowerCase().includes(search);
-      const matchesPoints = minPoints === null || Number(player.totalPoints || 0) >= minPoints;
-      const matchesPrice = maxPrice === null || Number(player.marketValue || 0) <= maxPrice;
-      return matchesPosition && matchesSearch && matchesPoints && matchesPrice;
-    })
-    .sort((a, b) => {
+  const mode = state.marketMode || "all";
+  const filtered = state.marketPlayers.filter((player) => {
+    const club = player.club?.name || player.club?.shortName || "";
+    const matchesPosition = !position || player.position === position;
+    const matchesSearch = !search || `${player.name} ${club}`.toLowerCase().includes(search);
+    const matchesPoints = minPoints === null || Number(player.totalPoints || 0) >= minPoints;
+    const matchesPrice = maxPrice === null || Number(player.marketValue || 0) <= maxPrice;
+    return matchesPosition && matchesSearch && matchesPoints && matchesPrice;
+  });
+
+  let list = filtered.slice();
+  let hint = "Listado completo con los filtros activos.";
+
+  if (mode === "mostUsed") {
+    hint = "Top 10 jugadores mas usados en alineaciones.";
+    list.sort(
+      (a, b) =>
+        Number(b.lineupUsage || 0) - Number(a.lineupUsage || 0) ||
+        Number(b.totalPoints || 0) - Number(a.totalPoints || 0)
+    );
+    list = list.slice(0, 10);
+  } else if (mode === "undervalued") {
+    hint = "Top 10 infravalorados: puntos altos con precio contenido.";
+    list = list
+      .filter((player) => Number(player.totalPoints || 0) > 0)
+      .sort((a, b) => undervaluedScore(b) - undervaluedScore(a) || Number(a.marketValue || 0) - Number(b.marketValue || 0))
+      .slice(0, 10);
+  } else if (mode === "value") {
+    hint = "Top 10 calidad/precio por puntos acumulados por millon.";
+    list = list
+      .filter((player) => Number(player.totalPoints || 0) > 0)
+      .sort((a, b) => valueEfficiency(b) - valueEfficiency(a) || Number(b.totalPoints || 0) - Number(a.totalPoints || 0))
+      .slice(0, 10);
+  } else if (mode === "risers") {
+    hint = "Top 10 mayores subidas tras la ultima actualizacion.";
+    list = list
+      .filter((player) => Number(player.marketValueChange || 0) > 0)
+      .sort((a, b) => Number(b.marketValueChange || 0) - Number(a.marketValueChange || 0))
+      .slice(0, 10);
+  } else if (mode === "fallers") {
+    hint = "Top 10 mayores bajadas tras la ultima actualizacion.";
+    list = list
+      .filter((player) => Number(player.marketValueChange || 0) < 0)
+      .sort((a, b) => Number(a.marketValueChange || 0) - Number(b.marketValueChange || 0))
+      .slice(0, 10);
+  } else {
+    list.sort((a, b) => {
       if (sort === "priceDesc") return Number(b.marketValue || 0) - Number(a.marketValue || 0);
       if (sort === "priceAsc") return Number(a.marketValue || 0) - Number(b.marketValue || 0);
       if (sort === "name") return a.name.localeCompare(b.name);
       return Number(b.totalPoints || 0) - Number(a.totalPoints || 0) || Number(b.marketValue || 0) - Number(a.marketValue || 0);
     });
+  }
+
+  $$("[data-market-mode]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.marketMode === mode);
+  });
+  els.marketModeHint.textContent = hint;
 
   els.marketList.innerHTML = list.length
     ? list.map((player) => renderPlayerCard(player, { market: true })).join("")
@@ -535,6 +718,7 @@ function renderPlayerDetail(data) {
       <div class="person-icon" aria-hidden="true">P</div>
       <div>
         <strong>${escapeHtml(player.name)}</strong>
+        ${marketChangeBadge(player)}
         <small>${escapeHtml(player.position)} - ${escapeHtml(club)} - ${formatEuro(player.marketValue)}</small>
       </div>
     </div>
@@ -554,17 +738,83 @@ function renderPlayerDetail(data) {
           const match = row.match
             ? `${row.match.homeClub?.shortName || "LOC"} ${row.match.homeScore ?? "-"}:${row.match.awayScore ?? "-"} ${row.match.awayClub?.shortName || "VIS"}`
             : "Sin partido";
+          const canOpen = row.score ? "" : "disabled";
           return `
-            <div class="stats-row">
+            <button class="stats-row stats-row-button" type="button" data-player-score-row="${row.gameweekId}" ${canOpen}>
               <span><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(match)} - ${escapeHtml(row.status)}</small></span>
               <span>${row.usedBy}</span>
               <span class="${row.points > 0 ? "positive" : row.points < 0 ? "negative" : ""}">${formatPoints(row.points)}</span>
+            </button>
+            <div class="player-score-detail hidden" data-player-score-detail="${row.gameweekId}">
+              ${renderPlayerScoreDetail(row)}
             </div>
           `;
         })
         .join("") || `<p class="hint">Sin jornadas registradas.</p>`}
     </div>
   `;
+}
+
+function renderPlayerScoreDetail(row) {
+  const score = row.score;
+  if (!score) return `<p class="hint">Esta jornada no tiene puntuacion detallada para el jugador.</p>`;
+  const calculatedPoints = Number(score.calculatedPoints ?? score.points ?? 0);
+  const savedPoints = Number(score.points || 0);
+  const totalDetail = calculatedPoints === savedPoints ? "Suma del detalle" : `Calculado: ${formatPoints(calculatedPoints)}`;
+
+  const stats = [
+    ["Jugo", score.played ? "Si" : "No"],
+    ["Goles", score.commonGoals || 0],
+    ["Pen/Dado", score.specialGoals || 0],
+    ["Asist.", score.assists || 0],
+    ["Pen. par.", score.penaltySaves || 0],
+    ["Picas", score.picas || 0],
+    ["Encajados", score.goalsAgainst || 0]
+  ];
+
+  return `
+    <div class="player-score-stat-grid">
+      ${stats
+        .map(
+          ([label, value]) => `
+            <span>
+              <small>${escapeHtml(label)}</small>
+              <strong>${escapeHtml(value)}</strong>
+            </span>
+          `
+        )
+        .join("")}
+    </div>
+    <div class="player-score-breakdown">
+      ${(score.lines || [])
+        .map(
+          (line) => `
+            <div class="score-breakdown-row">
+              <span><strong>${escapeHtml(line.label)}</strong><small>${escapeHtml(line.detail || "")}</small></span>
+              <strong class="${scoreClass(Number(line.points || 0))}">${formatPoints(line.points)}</strong>
+            </div>
+          `
+        )
+        .join("")}
+      <div class="score-breakdown-row total">
+        <span><strong>Total jornada</strong><small>${escapeHtml(totalDetail)}</small></span>
+        <strong class="${scoreClass(Number(score.points || 0))}">${formatPoints(score.points)}</strong>
+      </div>
+    </div>
+  `;
+}
+
+function togglePlayerScoreDetail(gameweekId) {
+  const detail = [...els.playerDetailBody.querySelectorAll("[data-player-score-detail]")].find(
+    (item) => item.dataset.playerScoreDetail === gameweekId
+  );
+  const button = [...els.playerDetailBody.querySelectorAll("[data-player-score-row]")].find(
+    (item) => item.dataset.playerScoreRow === gameweekId
+  );
+
+  if (!detail || !button) return;
+  detail.classList.toggle("hidden");
+  button.classList.toggle("active", !detail.classList.contains("hidden"));
 }
 
 function closePlayerDetail() {
@@ -709,7 +959,8 @@ function renderLineupSlot(slot, selectedPlayerId, disabled) {
       const isSelected = player._id === selectedPlayerId ? "selected" : "";
       const overBudget = !isSelected && baseValue + Number(player.marketValue || 0) > budgetLimit;
       const isDisabled = selectedInOtherSlots.has(player._id) || player.status !== "available" || overBudget ? "disabled" : "";
-      return `<option value="${player._id}" ${isSelected} ${isDisabled}>${escapeHtml(player.name)} - ${formatEuro(player.marketValue)}</option>`;
+      const club = player.club?.shortName || player.club?.name || "SIN";
+      return `<option value="${player._id}" ${isSelected} ${isDisabled}>${escapeHtml(player.name)} (${escapeHtml(club)}) - ${formatEuro(player.marketValue)}</option>`;
     })
     .join("");
 
@@ -1939,6 +2190,18 @@ function bindEvents() {
     });
   });
 
+  els.matchesList.addEventListener("click", (event) => {
+    const matchButton = event.target.closest("[data-match-detail]");
+    if (matchButton) openMatchDetail(matchButton.dataset.matchDetail);
+  });
+
+  $$("[data-market-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.marketMode = button.dataset.marketMode;
+      renderMarket();
+    });
+  });
+
   els.positionFilter.addEventListener("change", renderMarket);
   els.playerSearch.addEventListener("input", renderMarket);
   els.minPointsFilter.addEventListener("input", renderMarket);
@@ -1950,8 +2213,26 @@ function bindEvents() {
   });
 
   els.playerDetailModal.addEventListener("click", (event) => {
+    const scoreRow = event.target.closest("[data-player-score-row]");
+    if (scoreRow) {
+      togglePlayerScoreDetail(scoreRow.dataset.playerScoreRow);
+      return;
+    }
+
     if (event.target === els.playerDetailModal || event.target.closest("[data-close-player-detail]")) {
       closePlayerDetail();
+    }
+  });
+
+  els.matchDetailModal.addEventListener("click", (event) => {
+    const teamButton = event.target.closest("[data-match-team]");
+    if (teamButton) {
+      setMatchDetailTeam(teamButton.dataset.matchTeam);
+      return;
+    }
+
+    if (event.target === els.matchDetailModal || event.target.closest("[data-close-match-detail]")) {
+      closeMatchDetail();
     }
   });
 

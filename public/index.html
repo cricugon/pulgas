@@ -3,17 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pulgas League</title>
+    <title>Las Pulgas Fantasy</title>
+    <link rel="icon" type="image/png" href="/assets/las-pulgas-fantasy-logo.png" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <button class="brand" data-view="dashboard" aria-label="Ir al panel principal">
-          <span class="brand-mark">PL</span>
+          <img class="brand-mark" src="/assets/las-pulgas-fantasy-logo.png" alt="" />
           <span>
-            <strong>Pulgas League</strong>
-            <small>Fantasy football control room</small>
+            <strong>Las Pulgas Fantasy</strong>
+            <small>Fantasy futbol 7</small>
           </span>
         </button>
         <button id="logoutBtn" class="icon-button hidden" title="Cerrar sesion" aria-label="Cerrar sesion">⎋</button>
@@ -22,8 +23,9 @@
       <main>
         <section id="authView" class="auth-view">
           <div class="auth-visual">
+            <img class="auth-logo" src="/assets/las-pulgas-fantasy-logo.png" alt="Las Pulgas Fantasy" />
             <p class="eyebrow">Mercado, jornadas y puntos en vivo</p>
-            <h1>Construye tu equipo y gana cada jornada.</h1>
+            <h1>Las Pulgas Fantasy</h1>
             <p>
               Ficha jugadores, prepara tu alineacion con presupuesto limitado y escala en la
               clasificacion general.
@@ -146,6 +148,15 @@
                   </select>
                 </div>
               </div>
+              <div class="market-subnav segmented" aria-label="Listados de mercado">
+                <button class="active" data-market-mode="all" type="button">Todos</button>
+                <button data-market-mode="mostUsed" type="button">Mas usados</button>
+                <button data-market-mode="undervalued" type="button">Infravalorados</button>
+                <button data-market-mode="value" type="button">Calidad/precio</button>
+                <button data-market-mode="risers" type="button">Subidas</button>
+                <button data-market-mode="fallers" type="button">Bajadas</button>
+              </div>
+              <p id="marketModeHint" class="hint market-mode-hint"></p>
               <div id="marketList" class="player-list"></div>
             </section>
           </section>
@@ -375,6 +386,15 @@
                 <button class="icon-button" data-close-player-detail type="button" aria-label="Cerrar">x</button>
               </div>
               <div id="playerDetailBody"></div>
+            </div>
+          </div>
+          <div id="matchDetailModal" class="admin-modal hidden" role="dialog" aria-modal="true" aria-labelledby="matchDetailTitle">
+            <div class="admin-modal-card match-detail-modal">
+              <div class="panel-header">
+                <h3 id="matchDetailTitle">Partido</h3>
+                <button class="icon-button" data-close-match-detail type="button" aria-label="Cerrar">x</button>
+              </div>
+              <div id="matchDetailBody"></div>
             </div>
           </div>
         </section>

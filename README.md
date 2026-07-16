@@ -1,4 +1,4 @@
-# Pulgas League
+# Las Pulgas Fantasy
 
 App web cliente-servidor mobile-first tipo Comunio/Biwenger, hecha con HTML, CSS y JS nativos en el cliente, Node/Express en servidor y MongoDB como base de datos.
 

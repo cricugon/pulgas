@@ -25,7 +25,7 @@ app.use(morgan("dev"));
 app.use(express.static(path.join(__dirname, "..", "public")));
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, app: "Pulgas League" });
+  res.json({ ok: true, app: "Las Pulgas Fantasy" });
 });
 
 app.use("/api/auth", authRouter);
@@ -42,7 +42,7 @@ async function start() {
   try {
     await connectDB();
     app.listen(port, () => {
-      console.log(`Pulgas League escuchando en http://localhost:${port}`);
+      console.log(`Las Pulgas Fantasy escuchando en http://localhost:${port}`);
     });
   } catch (error) {
     console.error("No se pudo iniciar el servidor:", error.message);

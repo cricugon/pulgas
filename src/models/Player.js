@@ -10,6 +10,9 @@ const playerSchema = new mongoose.Schema(
     },
     club: { type: mongoose.Schema.Types.ObjectId, ref: "Club", required: true },
     marketValue: { type: Number, required: true, min: 0 },
+    previousMarketValue: { type: Number, default: 0, min: 0 },
+    marketValueChange: { type: Number, default: 0 },
+    marketValueUpdatedAt: { type: Date, default: null },
     totalPoints: { type: Number, default: 0 },
     form: { type: Number, default: 50, min: 0, max: 100 },
     status: {

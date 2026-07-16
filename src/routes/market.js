@@ -13,13 +13,17 @@ marketRouter.get("/", async (req, res) => {
   const [user, players, totalUsage, latestGameweek] = await Promise.all([
     User.findById(req.user._id).select("budget"),
     Player.find({}).populate("club").sort({ marketValue: -1, name: 1 }),
-    Lineup.aggregate([{ $unwind: "$players" }, { $group: { _id: "$players", count: { $sum: 1 } } }]),
+    Lineup.aggregate([
+      { $match: { lockedAt: { $exists: true, $ne: null } } },
+      { $unwind: "$players" },
+      { $group: { _id: "$players", count: { $sum: 1 } } }
+    ]),
     Gameweek.findOne({ status: { $in: ["live", "finished"] } }).sort({ number: -1 }).select("_id number name status")
   ]);
 
   const latestUsage = latestGameweek
     ? await Lineup.aggregate([
-        { $match: { gameweek: latestGameweek._id } },
+        { $match: { gameweek: latestGameweek._id, lockedAt: { $exists: true, $ne: null } } },
         { $unwind: "$players" },
         { $group: { _id: "$players", count: { $sum: 1 } } }
       ])

@@ -15,6 +15,19 @@ function sameId(a, b) {
   return String(a?._id || a || "") === String(b?._id || b || "");
 }
 
+function objectId(value) {
+  return value?._id?.toString?.() || value?.toString?.() || String(value || "");
+}
+
+function gameweekClubIds(gameweek) {
+  const clubIds = new Set();
+  for (const match of gameweek?.matches || []) {
+    if (match.homeClub) clubIds.add(objectId(match.homeClub));
+    if (match.awayClub) clubIds.add(objectId(match.awayClub));
+  }
+  return clubIds;
+}
+
 function goalsAgainstForPlayer(player, match) {
   if (sameId(player.club, match.homeClub)) return Number(match.awayScore || 0);
   if (sameId(player.club, match.awayClub)) return Number(match.homeScore || 0);
@@ -195,16 +208,24 @@ export async function recalculateUserTotals() {
 
 export async function lockGameweekLineups(gameweek) {
   const users = await User.find({ role: "user", status: "active" });
-  const availablePlayers = await Player.find({ status: "available" });
+  const eligibleClubIds = gameweekClubIds(gameweek);
+  const availablePlayers = (await Player.find({ status: "available" })).filter((player) =>
+    eligibleClubIds.has(objectId(player.club))
+  );
   const lockedAt = new Date();
   let lockedLineups = 0;
 
   for (const user of users) {
     const existingLineup = await Lineup.findOne({ user: user._id, gameweek: gameweek._id }).populate("players");
-    const autoLineup = existingLineup?.players?.length
+    const existingPlayers = (existingLineup?.players || []).filter((player) => eligibleClubIds.has(objectId(player.club)));
+    const canUseExistingLineup =
+      existingPlayers.length === 7 &&
+      existingPlayers.length === (existingLineup?.players || []).length &&
+      Number(existingLineup?.budgetValue || 0) <= Number(user.budget || 0);
+    const autoLineup = canUseExistingLineup
       ? {
           formation: existingLineup.formation || inferFormationFromPlayers(existingLineup.players),
-          players: existingLineup.players.map((player) => player._id),
+          players: existingPlayers.map((player) => player._id),
           budgetValue: existingLineup.budgetValue
         }
       : selectAutoLineup(availablePlayers, user.budget);

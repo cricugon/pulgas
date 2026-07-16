@@ -95,7 +95,7 @@ publicRouter.get("/players/:id/stats", async (req, res) => {
   const [gameweeks, lineupUsage] = await Promise.all([
     Gameweek.find({}).sort({ number: -1 }).populate("matches.homeClub matches.awayClub matches.playerScores.player"),
     Lineup.aggregate([
-      { $match: { players: player._id } },
+      { $match: { players: player._id, lockedAt: { $exists: true, $ne: null } } },
       { $group: { _id: "$gameweek", usedBy: { $sum: 1 } } }
     ])
   ]);

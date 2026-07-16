@@ -76,7 +76,7 @@ function buildGameweekPositionAverages(players, scoreMap) {
 
 async function buildUsageMap(gameweekId) {
   const usage = await Lineup.aggregate([
-    { $match: { gameweek: gameweekId } },
+    { $match: { gameweek: gameweekId, lockedAt: { $exists: true, $ne: null } } },
     { $unwind: "$players" },
     { $group: { _id: "$players", count: { $sum: 1 } } }
   ]);

@@ -9,8 +9,14 @@ import { User } from "../models/User.js";
 import { LeagueBackup } from "../models/LeagueBackup.js";
 import { createLeagueBackup, restoreLeagueBackup } from "../services/backups.js";
 import { resetLeague } from "../services/leagueReset.js";
+import { updateMarketValuesAfterGameweek } from "../services/marketValues.js";
 import { matchLabel, publishNews } from "../services/news.js";
-import { lockGameweekLineups, recalculateGameweek } from "../services/scoring.js";
+import {
+  calculatePlayerMatchPoints,
+  lockGameweekLineups,
+  normalizeScoreStat,
+  recalculateGameweek
+} from "../services/scoring.js";
 
 export const adminRouter = express.Router();
 
@@ -51,13 +57,61 @@ async function publishGameweekStatusNews(gameweek, status) {
 
 async function publishMatchScoresNews(gameweek, match) {
   if (!match) return;
+  const playedCount = (match.playerScores || []).filter((score) => score.played !== false).length;
 
   await publishNews({
     type: "match_scored",
     title: `Puntuaciones publicadas: ${matchLabel(match)}`,
-    body: `${gameweek.name} ya tiene ${match.playerScores?.length || 0} puntuaciones guardadas para este partido.`,
+    body: `${gameweek.name} ya tiene ${playedCount} jugadores puntuados para este partido.`,
     metadata: { gameweekId: gameweek._id, matchId: match._id }
   });
+}
+
+async function publishMarketValuesNews(result) {
+  if (!result?.updated) return;
+
+  await publishNews({
+    type: "system",
+    title: "Valores de mercado actualizados",
+    body: `${result.updated} jugadores han cambiado de valor tras el cierre de la jornada.`,
+    metadata: {
+      updated: result.updated,
+      minValue: result.minValue,
+      maxValue: result.maxValue,
+      maxChangeRate: result.maxChangeRate
+    }
+  });
+}
+
+function parseMatchResult(value) {
+  const score = Number(value);
+  if (!Number.isFinite(score) || score < 0) return null;
+  return Math.floor(score);
+}
+
+function normalizeScoreInput(score) {
+  if (!score || typeof score !== "object") return null;
+
+  const commonGoals = normalizeScoreStat(score.commonGoals);
+  const specialGoals = normalizeScoreStat(score.specialGoals);
+  const assists = normalizeScoreStat(score.assists);
+  const penaltySaves = normalizeScoreStat(score.penaltySaves);
+  const picas = normalizeScoreStat(score.picas, { max: 3 });
+
+  if ([commonGoals, specialGoals, assists, penaltySaves, picas].some((value) => value === null)) {
+    return null;
+  }
+
+  return {
+    playerId: String(score.playerId || ""),
+    played: Boolean(score.played),
+    commonGoals,
+    specialGoals,
+    assists,
+    penaltySaves,
+    picas,
+    note: String(score.note || "").trim()
+  };
 }
 
 adminRouter.get("/summary", async (_req, res) => {
@@ -160,7 +214,7 @@ adminRouter.post("/league/reset", async (req, res) => {
     const result = await resetLeague({
       loadDemoData: Boolean(req.body.loadDemoData),
       preserveUsers: true,
-      includeDemoAccounts: Boolean(req.body.loadDemoData)
+      includeDemoAccounts: false
     });
 
     res.json({
@@ -411,6 +465,10 @@ adminRouter.put("/gameweeks/:id", async (req, res) => {
     if (requestedStatus === "live" || requestedStatus === "finished" || requestedStatus === "draft") {
       await recalculateGameweek(gameweek._id);
     }
+    const marketValueUpdate =
+      requestedStatus === "finished" && previousStatus !== "finished"
+        ? await updateMarketValuesAfterGameweek(gameweek._id)
+        : null;
 
     const populated = await Gameweek.findById(gameweek._id).populate(
       "matches.homeClub matches.awayClub matches.playerScores.player"
@@ -418,8 +476,9 @@ adminRouter.put("/gameweeks/:id", async (req, res) => {
     if (previousStatus !== populated.status && ["live", "finished"].includes(populated.status)) {
       await publishGameweekStatusNews(populated, populated.status);
     }
+    await publishMarketValuesNews(marketValueUpdate);
 
-    res.json({ message: "Jornada actualizada.", gameweek: populated });
+    res.json({ message: "Jornada actualizada.", gameweek: populated, marketValueUpdate });
   } catch (error) {
     res.status(400).json({ message: "No se pudo actualizar la jornada.", detail: error.message });
   }
@@ -488,6 +547,8 @@ adminRouter.post("/gameweeks/:id/finish", async (req, res) => {
   });
   await gameweek.save();
   await recalculateGameweek(gameweek._id);
+  const marketValueUpdate =
+    previousStatus !== "finished" ? await updateMarketValuesAfterGameweek(gameweek._id) : null;
 
   const populated = await Gameweek.findById(gameweek._id).populate(
     "matches.homeClub matches.awayClub matches.playerScores.player"
@@ -495,8 +556,9 @@ adminRouter.post("/gameweeks/:id/finish", async (req, res) => {
   if (previousStatus !== "finished") {
     await publishGameweekStatusNews(populated, "finished");
   }
+  await publishMarketValuesNews(marketValueUpdate);
 
-  res.json({ message: "Jornada finalizada.", gameweek: populated });
+  res.json({ message: "Jornada finalizada.", gameweek: populated, marketValueUpdate });
 });
 
 adminRouter.post("/gameweeks/:id/matches", async (req, res) => {
@@ -571,73 +633,60 @@ adminRouter.post("/gameweeks/:id/matches/:matchId/scores", async (req, res) => {
   const match = gameweek.matches.id(req.params.matchId);
   if (!match) return res.status(404).json({ message: "Partido no encontrado." });
 
-  if (Array.isArray(req.body.scores)) {
-    const scores = req.body.scores.map((score) => ({
-      playerId: String(score.playerId || ""),
-      points: Number(score.points ?? 0),
-      note: String(score.note || "").trim()
-    }));
-    const uniquePlayerIds = [...new Set(scores.map((score) => score.playerId).filter(Boolean))];
+  if (!Array.isArray(req.body.scores)) {
+    return res.status(400).json({ message: "Debes enviar la tabla completa de estadisticas del partido." });
+  }
 
-    if (!scores.length) {
-      return res.status(400).json({ message: "El partido necesita al menos un jugador puntuado." });
-    }
+  const homeScore = parseMatchResult(req.body.homeScore);
+  const awayScore = parseMatchResult(req.body.awayScore);
+  if (homeScore === null || awayScore === null) {
+    return res.status(400).json({ message: "Introduce un resultado valido para el partido." });
+  }
 
-    if (uniquePlayerIds.length !== scores.length) {
-      return res.status(400).json({ message: "La lista de puntuaciones contiene jugadores repetidos o no validos." });
-    }
+  const scores = req.body.scores.map(normalizeScoreInput);
+  if (!scores.length || scores.some((score) => score === null)) {
+    return res.status(400).json({ message: "La tabla contiene estadisticas no validas." });
+  }
 
-    const players = await Player.find({ _id: { $in: uniquePlayerIds } }).select("_id club");
-    if (players.length !== uniquePlayerIds.length) {
-      return res.status(400).json({ message: "Alguno de los jugadores no existe." });
-    }
+  const uniquePlayerIds = [...new Set(scores.map((score) => score.playerId).filter(Boolean))];
+  if (uniquePlayerIds.length !== scores.length) {
+    return res.status(400).json({ message: "La lista de jugadores contiene repetidos o no validos." });
+  }
 
-    const matchClubIds = new Set([match.homeClub.toString(), match.awayClub.toString()]);
-    const outsideMatchPlayer = players.find((player) => !matchClubIds.has(player.club.toString()));
-    if (outsideMatchPlayer) {
-      return res.status(400).json({ message: "Solo puedes puntuar jugadores de los dos equipos del partido." });
-    }
+  const players = await Player.find({ _id: { $in: uniquePlayerIds } }).select("_id club position");
+  if (players.length !== uniquePlayerIds.length) {
+    return res.status(400).json({ message: "Alguno de los jugadores no existe." });
+  }
 
-    const invalidScore = scores.find((score) => !Number.isFinite(score.points));
-    if (invalidScore) {
-      return res.status(400).json({ message: "Todas las puntuaciones deben ser numeros validos." });
-    }
+  const matchClubIds = new Set([match.homeClub.toString(), match.awayClub.toString()]);
+  const outsideMatchPlayer = players.find((player) => !matchClubIds.has(player.club.toString()));
+  if (outsideMatchPlayer) {
+    return res.status(400).json({ message: "Solo puedes puntuar jugadores de los dos equipos del partido." });
+  }
 
-    match.playerScores = scores.map((score) => ({
+  const playerById = new Map(players.map((player) => [player._id.toString(), player]));
+  match.homeScore = homeScore;
+  match.awayScore = awayScore;
+  match.playerScores = scores.map((score) => {
+    const player = playerById.get(score.playerId);
+    const stats = {
+      played: score.played,
+      commonGoals: score.commonGoals,
+      specialGoals: score.specialGoals,
+      assists: score.assists,
+      penaltySaves: score.penaltySaves,
+      picas: score.picas
+    };
+
+    return {
       player: score.playerId,
-      points: score.points,
+      points: calculatePlayerMatchPoints(player, match, stats),
+      ...stats,
       note: score.note
-    }));
+    };
+  });
 
-    if (req.body.homeScore !== undefined) match.homeScore = Number(req.body.homeScore);
-    if (req.body.awayScore !== undefined) match.awayScore = Number(req.body.awayScore);
-    if (req.body.markFinished !== false) match.status = "finished";
-
-    await gameweek.save();
-    await recalculateGameweek(gameweek._id);
-
-    const populated = await Gameweek.findById(gameweek._id).populate(
-      "matches.homeClub matches.awayClub matches.playerScores.player"
-    );
-    const scoredMatch = populated.matches.id(match._id);
-    await publishMatchScoresNews(populated, scoredMatch);
-
-    return res.json({ message: "Puntuaciones del partido guardadas.", gameweek: populated });
-  }
-
-  const playerId = String(req.body.playerId);
-  const points = Number(req.body.points || 0);
-  const existing = match.playerScores.find((score) => score.player.toString() === playerId);
-
-  if (existing) {
-    existing.points = points;
-    existing.note = req.body.note || "";
-  } else {
-    match.playerScores.push({ player: playerId, points, note: req.body.note || "" });
-  }
-
-  if (req.body.homeScore !== undefined) match.homeScore = Number(req.body.homeScore);
-  if (req.body.awayScore !== undefined) match.awayScore = Number(req.body.awayScore);
+  if (req.body.markFinished !== false) match.status = "finished";
 
   await gameweek.save();
   await recalculateGameweek(gameweek._id);
@@ -648,5 +697,5 @@ adminRouter.post("/gameweeks/:id/matches/:matchId/scores", async (req, res) => {
   const scoredMatch = populated.matches.id(match._id);
   await publishMatchScoresNews(populated, scoredMatch);
 
-  res.json({ message: "Puntuacion guardada.", gameweek: populated });
+  res.json({ message: "Puntuaciones del partido calculadas y guardadas.", gameweek: populated });
 });

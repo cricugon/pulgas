@@ -4,6 +4,60 @@ import { Player } from "../models/Player.js";
 import { User } from "../models/User.js";
 import { inferFormationFromPlayers, selectAutoLineup } from "./formations.js";
 
+const BASE_POINTS = {
+  POR: 5,
+  DEF: 4,
+  MED: 2,
+  DEL: 2
+};
+
+function sameId(a, b) {
+  return String(a?._id || a || "") === String(b?._id || b || "");
+}
+
+function goalsAgainstForPlayer(player, match) {
+  if (sameId(player.club, match.homeClub)) return Number(match.awayScore || 0);
+  if (sameId(player.club, match.awayClub)) return Number(match.homeScore || 0);
+  return 0;
+}
+
+export function normalizeScoreStat(value, { max = Number.POSITIVE_INFINITY } = {}) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number) || number < 0) return null;
+  return Math.min(Math.floor(number), max);
+}
+
+export function calculatePlayerMatchPoints(player, match, stats = {}) {
+  if (!stats.played) return 0;
+
+  const position = player.position;
+  const goalsAgainst = goalsAgainstForPlayer(player, match);
+  const commonGoals = normalizeScoreStat(stats.commonGoals) ?? 0;
+  const specialGoals = normalizeScoreStat(stats.specialGoals) ?? 0;
+  const assists = normalizeScoreStat(stats.assists) ?? 0;
+  const penaltySaves = normalizeScoreStat(stats.penaltySaves) ?? 0;
+  const picas = normalizeScoreStat(stats.picas, { max: 3 }) ?? 0;
+  const isDefensive = position === "POR" || position === "DEF";
+
+  let points = BASE_POINTS[position] || 0;
+  points += commonGoals * (isDefensive ? 4 : 3);
+  points += specialGoals * 2;
+  points += assists;
+  points += picas * 2;
+
+  if (position === "POR") points += penaltySaves * 3;
+
+  if (isDefensive) {
+    if (goalsAgainst === 0) {
+      points += position === "POR" ? 5 : 3;
+    } else {
+      points -= Math.floor(goalsAgainst / 2);
+    }
+  }
+
+  return points;
+}
+
 export function buildGameweekScoreMap(gameweek) {
   const scores = new Map();
 

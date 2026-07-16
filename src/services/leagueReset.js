@@ -6,49 +6,117 @@ import { NewsItem } from "../models/NewsItem.js";
 import { Player } from "../models/Player.js";
 import { getLeagueSettings } from "../models/Settings.js";
 import { User } from "../models/User.js";
-import { recalculateGameweek } from "./scoring.js";
 
 export const clubSeeds = [
-  ["Real Madrid", "RMA", "Madrid", "#ffffff", "#2563eb"],
-  ["FC Barcelona", "FCB", "Barcelona", "#1d4ed8", "#a21caf"],
-  ["Atletico de Madrid", "ATM", "Madrid", "#ef4444", "#ffffff"],
-  ["Athletic Club", "ATH", "Bilbao", "#e11d48", "#ffffff"],
-  ["Real Sociedad", "RSO", "Donostia", "#2563eb", "#ffffff"],
-  ["Villarreal CF", "VIL", "Vila-real", "#facc15", "#1e293b"],
-  ["Real Betis", "BET", "Sevilla", "#16a34a", "#ffffff"],
-  ["Sevilla FC", "SEV", "Sevilla", "#dc2626", "#ffffff"]
+  ["Robledo F.C.", "ROB", "Robledo", "#1d4ed8", "#ffffff"],
+  ["Los Cantones F.C.", "CANT", "Los Cantones", "#0ea5e9", "#ffffff"],
+  ["F.C. Jardín", "JAR", "Jardín", "#16a34a", "#ffffff"],
+  ["Quijote-Pesebre", "QUIJ", "Quijote-Pesebre", "#facc15", "#1e293b"],
+  ["Los Chospes F.C.", "CHOS", "Los Chospes", "#dc2626", "#ffffff"],
+  ["El Ballestero F.C.", "BALL", "El Ballestero", "#7c3aed", "#ffffff"]
 ];
+
+const M = 1000000;
 
 export const playerSeeds = [
-  ["Unai Simon", "POR", "ATH", 9500000, 77, 1],
-  ["Alex Remiro", "POR", "RSO", 8400000, 72, 1],
-  ["Thibaut Courtois", "POR", "RMA", 14000000, 86, 1],
-  ["Marc-Andre ter Stegen", "POR", "FCB", 12800000, 82, 1],
-  ["Dani Carvajal", "DEF", "RMA", 12200000, 80, 2],
-  ["Pau Cubarsi", "DEF", "FCB", 9800000, 76, 5],
-  ["Robin Le Normand", "DEF", "ATM", 10300000, 74, 24],
-  ["Dani Vivian", "DEF", "ATH", 7900000, 71, 3],
-  ["Pau Torres", "DEF", "VIL", 9400000, 70, 4],
-  ["Marc Bartra", "DEF", "BET", 5100000, 61, 15],
-  ["Federico Valverde", "MED", "RMA", 16800000, 90, 8],
-  ["Pedri Gonzalez", "MED", "FCB", 16000000, 88, 8],
-  ["Mikel Merino", "MED", "RSO", 13200000, 84, 8],
-  ["Isco Alarcon", "MED", "BET", 11200000, 83, 22],
-  ["Marcos Llorente", "MED", "ATM", 11800000, 79, 14],
-  ["Suso Fernandez", "MED", "SEV", 6400000, 63, 7],
-  ["Jude Bellingham", "MED", "RMA", 22000000, 95, 5],
-  ["Lamine Yamal", "DEL", "FCB", 23000000, 96, 19],
-  ["Antoine Griezmann", "DEL", "ATM", 17500000, 89, 7],
-  ["Nico Williams", "DEL", "ATH", 15500000, 87, 10],
-  ["Gerard Moreno", "DEL", "VIL", 10100000, 74, 7],
-  ["Willian Jose", "DEL", "BET", 7400000, 68, 12],
-  ["Mikel Oyarzabal", "DEL", "RSO", 13900000, 82, 10],
-  ["Youssef En-Nesyri", "DEL", "SEV", 10800000, 75, 15]
-];
+  ["José Luis Serrallé", "POR", "ROB", 15 * M, 1],
+  ["Cristian Cuerda", "DEF", "ROB", 8 * M, 2],
+  ["Pepe Callejas", "DEF", "ROB", 10 * M, 3],
+  ["Pablo González", "MED", "ROB", 18 * M, 4],
+  ["Marcos Garví", "DEL", "ROB", 18 * M, 5],
+  ["Francisco Blázquez", "DEF", "ROB", 25 * M, 6],
+  ["Fabio Garví", "DEL", "ROB", 25 * M, 7],
+  ["Jose Julian García", "DEL", "ROB", 10 * M, 8],
+  ["José Panadés", "MED", "ROB", 16 * M, 9],
+  ["Dennis Gómez", "DEL", "ROB", 7 * M, 10],
+  ["Asier Callejo", "DEF", "ROB", 8 * M, 11],
+  ["Carlos García", "DEL", "ROB", 6 * M, 12],
+  ["Borja Garví", "MED", "ROB", 16 * M, 13],
+  ["Luis Ángel Albaladejo Ramirez", "MED", "ROB", 12 * M, 14],
+  ["Eneko Galarza", "DEL", "ROB", 15 * M, 15],
+  ["Marcos Rozalén", "DEF", "ROB", 6 * M, 16],
+  ["Manuel Cuerda", "DEL", "ROB", 5 * M, 17],
+  ["Enaitz Etxeberria", "DEF", "ROB", 10 * M, 18],
+  ["David Muñoz", "MED", "ROB", 12 * M, 19],
+  ["Isra", "MED", "ROB", 10 * M, 20],
 
-function pickPlayers(players, names) {
-  return names.map((name) => players.find((player) => player.name === name)?._id).filter(Boolean);
-}
+  ["José Ramón García Sánchez (Bolo)", "DEF", "CANT", 22 * M, 1],
+  ["Pascual Muñoz López (Pascu)", "DEL", "CANT", 12 * M, 2],
+  ["Pedro Rubio Esono", "DEL", "CANT", 17 * M, 3],
+  ["Sergio Serrano Cano", "DEF", "CANT", 20 * M, 4],
+  ["Fernando López Valero (Fer)", "DEF", "CANT", 11 * M, 5],
+  ["Aitor Lozano Ortega (Belfetas)", "DEF", "CANT", 10 * M, 6],
+  ["Jose Juan Amador Martinez", "MED", "CANT", 14 * M, 7],
+  ["Álvaro Marín Rodríguez (Marin)", "DEL", "CANT", 20 * M, 8],
+  ["David Herrera Esparcia", "MED", "CANT", 13 * M, 9],
+  ["Carlos Mozo Cano (Mozo)", "MED", "CANT", 11 * M, 10],
+  ["Fede Quijano Gómez (Lacerilla)", "DEL", "CANT", 13 * M, 11, "Extracomunitario"],
+  ["Pedro Jesús García Cuerda (Perus)", "DEF", "CANT", 8 * M, 12],
+  ["Sergio Ortega Ballesteros (Chabo)", "MED", "CANT", 11 * M, 13],
+  ["Ángel David García Lozano (A. David)", "POR", "CANT", 10 * M, 14],
+  ["Iván Lorenzo Nieto (Iván L.)", "MED", "CANT", 19 * M, 15],
+
+  ["Cristian López García", "POR", "JAR", 18 * M, 1],
+  ["Hugo Fernández Martínez", "DEL", "JAR", 14 * M, 2, "Extracomunitario"],
+  ["Juan Bodalo Vitoria", "DEF", "JAR", 16 * M, 3, "Extracomunitario"],
+  ["Jesús Garví Barba", "DEL", "JAR", 10 * M, 4],
+  ["Abel Garrigós Cuesta", "MED", "JAR", 20 * M, 5, "Extracomunitario"],
+  ["José Luis García Rozalén", "MED", "JAR", 5 * M, 6],
+  ["Andrés de Haro Lorenzo", "DEF", "JAR", 8 * M, 7],
+  ["Álvaro Garví Barba", "DEF", "JAR", 10 * M, 8],
+  ["Víctor Garrido Cortés", "DEF", "JAR", 5 * M, 9],
+  ["Bemba Fane Sissoko", "DEL", "JAR", 7 * M, 10],
+  ["Álvaro García Fernández", "DEF", "JAR", 10 * M, 11],
+  ["Eduardo García Fernández", "MED", "JAR", 6 * M, 12],
+  ["Pedro Escribano Morcillo", "DEL", "JAR", 12 * M, 13],
+  ["Lucilo López García", "DEF", "JAR", 13 * M, 14],
+  ["Jaime Sánchez Cuartero", "DEL", "JAR", 20 * M, 15, "Extracomunitario"],
+  ["Fernando David Valcárcel Moreno", "MED", "JAR", 10 * M, 16, "Extracomunitario"],
+  ["Juan Ángel Santiago Díaz", "DEL", "JAR", 10 * M, 17],
+
+  ["Álvaro Rodríguez García", "DEL", "QUIJ", 21 * M, 1, "Extracomunitario"],
+  ["Álvaro Cuerda Álvarez", "MED", "QUIJ", 4 * M, 2],
+  ["Ángel de la Rosa Moya", "POR", "QUIJ", 12 * M, 3],
+  ["Sergio Sánchez Martínez", "MED", "QUIJ", 16 * M, 4],
+  ["Pablo Hernández Moreno", "MED", "QUIJ", 12 * M, 5, "Extracomunitario"],
+  ["Nicolás Casado Rodríguez", "DEF", "QUIJ", 12 * M, 6, "Extracomunitario"],
+  ["Daniel Rodríguez Carneros", "DEF", "QUIJ", 22 * M, 7, "Extracomunitario"],
+  ["Guillermo Paredes Farriols", "DEL", "QUIJ", 14 * M, 8],
+  ["Álvaro Carreño Ibáñez", "DEL", "QUIJ", 13 * M, 9, "Extracomunitario"],
+  ["Manuel Cabrera García", "DEF", "QUIJ", 16 * M, 10],
+  ["Alejandro Cuerda Pérez", "DEL", "QUIJ", 5 * M, 11],
+  ["Set Francisco Moya Jiménez", "MED", "QUIJ", 18 * M, 12],
+
+  ["Jonathan Redondo Galdón", "DEL", "CHOS", 8 * M, 1],
+  ["Pedro Sánchez Lorenzo", "MED", "CHOS", 10 * M, 2],
+  ["Miguel Ángel Romero Navarro", "DEF", "CHOS", 11 * M, 3],
+  ["Alex Pricop", "MED", "CHOS", 10 * M, 4, "Extracomunitario"],
+  ["Miguel Ángel Bañol Notario", "DEL", "CHOS", 10 * M, 5, "Extracomunitario"],
+  ["Adrián Copete Sahuquillo", "MED", "CHOS", 6 * M, 6],
+  ["Miguel Ángel Moreno", "DEL", "CHOS", 11 * M, 7],
+  ["Amin Selloum", "MED", "CHOS", 12 * M, 8, "Extracomunitario"],
+  ["Loren Martínez", "DEF", "CHOS", 10 * M, 9, "Extracomunitario"],
+  ["Piu", "DEF", "CHOS", 8 * M, 10],
+  ["Ismael Sánchez Arcas", "DEF", "CHOS", 8 * M, 11],
+  ["Juan José López", "POR", "CHOS", 10 * M, 12, "Extracomunitario"],
+
+  ["Alejandro Torres", "MED", "BALL", 19 * M, 1],
+  ["José Ramón Cañizares", "MED", "BALL", 10 * M, 2],
+  ["Jaime López Banda", "DEF", "BALL", 8 * M, 3],
+  ["Samuel Ortega", "DEL", "BALL", 19 * M, 5],
+  ["Pedro Rivera", "DEL", "BALL", 10 * M, 6],
+  ["Alejandro Garrido", "DEL", "BALL", 11 * M, 7],
+  ["Sergio Torres", "DEF", "BALL", 10 * M, 8],
+  ["Héctor Torres", "DEF", "BALL", 9 * M, 9],
+  ["Iván Lorenzo", "MED", "BALL", 19 * M, 10],
+  ["Sergio Avendaño", "DEF", "BALL", 9 * M, 11],
+  ["César Agüero", "DEL", "BALL", 16 * M, 12],
+  ["Alejandro Galletero", "DEL", "BALL", 14 * M, 13],
+  ["Kato", "POR", "BALL", 12 * M, 14],
+  ["Ismael Ortega Ortega", "DEF", "BALL", 12 * M, 15, "Extracomunitario"],
+  ["Rafael Ortega Ortega", "DEL", "BALL", 12 * M, 16, "Extracomunitario"],
+  ["Raúl Nieto", "MED", "BALL", 15 * M, 17, "Extracomunitario"]
+];
 
 async function ensureDemoAccounts(initialBudget) {
   const passwordHash = await bcrypt.hash("123456", 12);
@@ -111,7 +179,7 @@ async function resetUsers(initialBudget, preserveUsers, includeDemoAccounts) {
   return { demo: await User.findOne({ email: "demo@pulgasleague.test", role: "user" }) };
 }
 
-async function createDemoLeague(initialBudget, demoUser) {
+async function createDemoLeague() {
   const clubs = await Club.insertMany(
     clubSeeds.map(([name, shortName, city, primaryColor, secondaryColor]) => ({
       name,
@@ -123,98 +191,23 @@ async function createDemoLeague(initialBudget, demoUser) {
   );
 
   const clubByShortName = new Map(clubs.map((club) => [club.shortName, club]));
-  const players = await Player.insertMany(
+  await Player.insertMany(
     playerSeeds.map((seed) => {
-      const [name, position, clubShortName, marketValue, form, shirtNumber] = seed;
+      const [name, position, clubShortName, marketValue, shirtNumber, bio = ""] = seed;
+      const club = clubByShortName.get(clubShortName);
+      if (!club) throw new Error(`Club no encontrado para jugador ${name}: ${clubShortName}`);
+
       return {
         name,
         position,
-        club: clubByShortName.get(clubShortName)._id,
+        club: club._id,
         marketValue,
-        form,
-        shirtNumber
+        form: 50,
+        shirtNumber,
+        bio
       };
     })
   );
-
-  const jornada1 = await Gameweek.create({
-    number: 1,
-    name: "Jornada 1",
-    status: "finished",
-    lineupBudgetCap: initialBudget,
-    startsAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-    endsAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000),
-    matches: [
-      {
-        homeClub: clubByShortName.get("RMA")._id,
-        awayClub: clubByShortName.get("FCB")._id,
-        status: "finished",
-        homeScore: 2,
-        awayScore: 1,
-        playerScores: [
-          { player: players.find((player) => player.name === "Jude Bellingham")._id, points: 12, note: "Gol y MVP" },
-          { player: players.find((player) => player.name === "Lamine Yamal")._id, points: 9, note: "Asistencia" },
-          { player: players.find((player) => player.name === "Federico Valverde")._id, points: 7, note: "Buen partido" },
-          { player: players.find((player) => player.name === "Pedri Gonzalez")._id, points: 6, note: "Control del juego" }
-        ]
-      },
-      {
-        homeClub: clubByShortName.get("ATM")._id,
-        awayClub: clubByShortName.get("ATH")._id,
-        status: "finished",
-        homeScore: 1,
-        awayScore: 1,
-        playerScores: [
-          { player: players.find((player) => player.name === "Antoine Griezmann")._id, points: 4, note: "Gol" },
-          { player: players.find((player) => player.name === "Nico Williams")._id, points: 5, note: "Desborde constante" },
-          { player: players.find((player) => player.name === "Dani Vivian")._id, points: -1, note: "Tarjeta" }
-        ]
-      }
-    ]
-  });
-
-  if (demoUser) {
-    await Lineup.create({
-      user: demoUser._id,
-      gameweek: jornada1._id,
-      formation: "2-3-1",
-      players: pickPlayers(players, [
-        "Thibaut Courtois",
-        "Dani Carvajal",
-        "Pau Cubarsi",
-        "Federico Valverde",
-        "Pedri Gonzalez",
-        "Jude Bellingham",
-        "Lamine Yamal"
-      ]),
-      budgetValue: 113800000,
-      lockedAt: new Date()
-    });
-  }
-
-  await Gameweek.create({
-    number: 2,
-    name: "Jornada 2",
-    status: "draft",
-    lineupBudgetCap: initialBudget,
-    startsAt: new Date(),
-    matches: [
-      {
-        homeClub: clubByShortName.get("RSO")._id,
-        awayClub: clubByShortName.get("BET")._id,
-        status: "scheduled",
-        playerScores: []
-      },
-      {
-        homeClub: clubByShortName.get("VIL")._id,
-        awayClub: clubByShortName.get("SEV")._id,
-        status: "scheduled",
-        playerScores: []
-      }
-    ]
-  });
-
-  await recalculateGameweek(jornada1._id);
 }
 
 export async function resetLeague({
@@ -239,10 +232,10 @@ export async function resetLeague({
     NewsItem.deleteMany({})
   ]);
 
-  const { demo } = await resetUsers(budget, preserveUsers, includeDemoAccounts);
+  await resetUsers(budget, preserveUsers, includeDemoAccounts);
 
   if (loadDemoData) {
-    await createDemoLeague(budget, demo);
+    await createDemoLeague();
   }
 
   const [users, clubs, players, gameweeks, lineups] = await Promise.all([

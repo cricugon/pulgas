@@ -333,6 +333,16 @@
                     Partido
                     <select id="scoreMatchInput" required></select>
                   </label>
+                  <div class="score-result-grid">
+                    <label>
+                      Goles local
+                      <input id="scoreHomeInput" type="number" min="0" step="1" required />
+                    </label>
+                    <label>
+                      Goles visitante
+                      <input id="scoreAwayInput" type="number" min="0" step="1" required />
+                    </label>
+                  </div>
                   <div id="scorePlayersList" class="score-player-list"></div>
                   <button class="primary-button" type="submit">Guardar puntuaciones</button>
                 </form>

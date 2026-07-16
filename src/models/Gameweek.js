@@ -4,6 +4,12 @@ const playerScoreSchema = new mongoose.Schema(
   {
     player: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true },
     points: { type: Number, required: true, default: 0 },
+    played: { type: Boolean, default: false },
+    commonGoals: { type: Number, default: 0, min: 0 },
+    specialGoals: { type: Number, default: 0, min: 0 },
+    assists: { type: Number, default: 0, min: 0 },
+    penaltySaves: { type: Number, default: 0, min: 0 },
+    picas: { type: Number, default: 0, min: 0, max: 3 },
     note: { type: String, trim: true, default: "" }
   },
   { _id: false }

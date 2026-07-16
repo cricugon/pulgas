@@ -125,6 +125,8 @@ const els = {
   scoreForm: $("#scoreForm"),
   scoreGameweekInput: $("#scoreGameweekInput"),
   scoreMatchInput: $("#scoreMatchInput"),
+  scoreHomeInput: $("#scoreHomeInput"),
+  scoreAwayInput: $("#scoreAwayInput"),
   scoreActiveInfo: $("#scoreActiveInfo"),
   scorePlayersList: $("#scorePlayersList"),
   adminGameweeks: $("#adminGameweeks")
@@ -383,6 +385,7 @@ function renderActiveGameweek() {
   els.matchesList.innerHTML = (gw.matches || [])
     .map((match) => {
       const scores = (match.playerScores || [])
+        .filter((score) => score.played !== false)
         .slice()
         .sort((a, b) => b.points - a.points)
         .slice(0, 5)
@@ -1211,7 +1214,7 @@ function renderAdminGameweek(gw) {
           <strong>${match.homeScore ?? "-"} : ${match.awayScore ?? "-"}</strong>
           <span>${escapeHtml(match.awayClub?.shortName || "")}</span>
         </div>
-        <div class="score-line">${match.status} · ${match.playerScores?.length || 0} puntuaciones</div>
+        <div class="score-line">${match.status} · ${matchScoredPlayers(match)} puntuados</div>
         <div class="row-actions">
           <button class="mini-button" data-edit-match="${match._id}" data-match-gw="${gw._id}">Editar partido</button>
           <button class="mini-button danger" data-delete-match="${match._id}" data-match-gw="${gw._id}">Borrar partido</button>
@@ -1245,6 +1248,8 @@ function renderScoreMatchOptions() {
   if (!gw) {
     els.scoreMatchInput.innerHTML = "";
     els.scoreMatchInput.disabled = true;
+    els.scoreHomeInput.value = "";
+    els.scoreAwayInput.value = "";
     els.scoreActiveInfo.innerHTML = `<p class="hint">No hay ninguna jornada en juego. Inicia una jornada para puntuar sus partidos.</p>`;
     els.scorePlayersList.innerHTML = "";
     return;
@@ -1261,7 +1266,7 @@ function renderScoreMatchOptions() {
     .map(
       (match) => `
       <option value="${match._id}">
-        ${escapeHtml(match.homeClub?.shortName || "LOC")} - ${escapeHtml(match.awayClub?.shortName || "VIS")} - ${match.playerScores?.length || 0} puntuaciones
+        ${escapeHtml(match.homeClub?.shortName || "LOC")} - ${escapeHtml(match.awayClub?.shortName || "VIS")} - ${matchScoredPlayers(match)} puntuados
       </option>
     `
     )
@@ -1292,12 +1297,125 @@ function existingMatchScore(match, playerId) {
   return (match.playerScores || []).find((score) => scorePlayerId(score) === playerId);
 }
 
+function matchScoredPlayers(match) {
+  return (match.playerScores || []).filter((score) => score.played !== false).length;
+}
+
+function scoreInputValue(row, field) {
+  const input = row.querySelector(`[data-score-field="${field}"]`);
+  if (!input) return 0;
+  return input.type === "checkbox" ? input.checked : Number(input.value || 0);
+}
+
+function scoreGoalsAgainst(player) {
+  const match = selectedScoreMatch();
+  const homeScore = Number(els.scoreHomeInput.value || 0);
+  const awayScore = Number(els.scoreAwayInput.value || 0);
+  const clubId = playerClubId(player);
+  const homeClubId = match?.homeClub?._id || match?.homeClub;
+  const awayClubId = match?.awayClub?._id || match?.awayClub;
+
+  if (clubId === homeClubId) return awayScore;
+  if (clubId === awayClubId) return homeScore;
+  return 0;
+}
+
+function calculateScorePreview(player, stats) {
+  if (!stats.played) return 0;
+
+  const isDefensive = player.position === "POR" || player.position === "DEF";
+  const base = { POR: 5, DEF: 4, MED: 2, DEL: 2 }[player.position] || 0;
+  let points = base;
+  points += Number(stats.commonGoals || 0) * (isDefensive ? 4 : 3);
+  points += Number(stats.specialGoals || 0) * 2;
+  points += Number(stats.assists || 0);
+  points += Number(stats.picas || 0) * 2;
+
+  if (player.position === "POR") points += Number(stats.penaltySaves || 0) * 3;
+
+  if (isDefensive) {
+    const against = scoreGoalsAgainst(player);
+    if (against === 0) {
+      points += player.position === "POR" ? 5 : 3;
+    } else {
+      points -= Math.floor(against / 2);
+    }
+  }
+
+  return points;
+}
+
+function updateScorePreviews() {
+  els.scorePlayersList.querySelectorAll("[data-score-row]").forEach((row) => {
+    const player = state.admin.players.find((item) => item._id === row.dataset.scorePlayer);
+    if (!player) return;
+
+    const played = Boolean(scoreInputValue(row, "played"));
+    const stats = {
+      played,
+      commonGoals: scoreInputValue(row, "commonGoals"),
+      specialGoals: scoreInputValue(row, "specialGoals"),
+      assists: scoreInputValue(row, "assists"),
+      penaltySaves: player.position === "POR" ? scoreInputValue(row, "penaltySaves") : 0,
+      picas: scoreInputValue(row, "picas")
+    };
+    const points = calculateScorePreview(player, stats);
+    const output = row.querySelector("[data-score-preview]");
+    if (output) {
+      output.textContent = formatPoints(points);
+      output.classList.toggle("positive", points > 0);
+      output.classList.toggle("negative", points < 0);
+    }
+
+    row.classList.toggle("not-played", !played);
+  });
+}
+
+function statValue(existing, field, fallback = 0) {
+  return existing?.[field] ?? fallback;
+}
+
+function renderScoreRow(player, match) {
+  const existing = existingMatchScore(match, player._id);
+  const played = existing ? existing.played !== false : false;
+  const club = player.club?.shortName || player.club?.name || "";
+  const penaltySaveDisabled = player.position !== "POR" ? "disabled" : "";
+
+  return `
+    <article class="score-stat-row" data-score-row data-score-player="${player._id}">
+      <div class="score-player-cell">
+        <strong>${escapeHtml(player.name)}</strong>
+        <small>${escapeHtml(player.position)} - ${escapeHtml(club)}</small>
+      </div>
+      <label class="score-played" title="Ha participado">
+        <input data-score-field="played" type="checkbox" ${played ? "checked" : ""} />
+        <span>Jugó</span>
+      </label>
+      <input class="score-number" data-score-field="commonGoals" type="number" min="0" step="1" value="${statValue(existing, "commonGoals")}" aria-label="Goles en juego de ${escapeHtml(player.name)}" />
+      <input class="score-number" data-score-field="specialGoals" type="number" min="0" step="1" value="${statValue(existing, "specialGoals")}" aria-label="Goles de penalti o dado de ${escapeHtml(player.name)}" />
+      <input class="score-number" data-score-field="assists" type="number" min="0" step="1" value="${statValue(existing, "assists")}" aria-label="Asistencias de ${escapeHtml(player.name)}" />
+      <input class="score-number" data-score-field="penaltySaves" type="number" min="0" step="1" value="${statValue(existing, "penaltySaves")}" ${penaltySaveDisabled} aria-label="Penaltis parados de ${escapeHtml(player.name)}" />
+      <select class="score-number" data-score-field="picas" aria-label="Picas de ${escapeHtml(player.name)}">
+        ${[0, 1, 2, 3]
+          .map((value) => `<option value="${value}" ${Number(statValue(existing, "picas")) === value ? "selected" : ""}>${value}</option>`)
+          .join("")}
+      </select>
+      <strong class="score-preview" data-score-preview>${formatPoints(existing?.points || 0)}</strong>
+    </article>
+  `;
+}
+
 function renderScorePlayers() {
   const match = selectedScoreMatch();
   if (!match) {
     els.scorePlayersList.innerHTML = `<p class="hint">La jornada activa todavia no tiene partidos.</p>`;
+    els.scoreHomeInput.value = "";
+    els.scoreAwayInput.value = "";
     return;
   }
+
+  els.scoreHomeInput.value = match.homeScore ?? 0;
+  els.scoreAwayInput.value = match.awayScore ?? 0;
 
   const homeClubId = match.homeClub?._id || match.homeClub;
   const awayClubId = match.awayClub?._id || match.awayClub;
@@ -1315,28 +1433,45 @@ function renderScorePlayers() {
     return;
   }
 
+  const playersByClub = new Map([
+    [homeClubId, players.filter((player) => playerClubId(player) === homeClubId)],
+    [awayClubId, players.filter((player) => playerClubId(player) === awayClubId)]
+  ]);
+  const teamSections = [
+    { club: match.homeClub, players: playersByClub.get(homeClubId) || [] },
+    { club: match.awayClub, players: playersByClub.get(awayClubId) || [] }
+  ];
+
   els.scorePlayersList.innerHTML = `
     <div class="score-match-header">
       <strong>${escapeHtml(match.homeClub?.shortName || "LOC")} - ${escapeHtml(match.awayClub?.shortName || "VIS")}</strong>
-      <span class="pill">${escapeHtml(match.status)} - ${match.playerScores?.length || 0} guardadas</span>
+      <span class="pill">${escapeHtml(match.status)} - ${matchScoredPlayers(match)} jugadores puntuados</span>
     </div>
-    ${players
-      .map((player) => {
-        const existing = existingMatchScore(match, player._id);
-        const club = player.club?.shortName || player.club?.name || "";
-        return `
-          <article class="score-player-row">
-            <div>
-              <strong>${escapeHtml(player.name)}</strong>
-              <small>${escapeHtml(player.position)} - ${escapeHtml(club)}</small>
+    ${teamSections
+      .map(
+        ({ club, players: teamPlayers }) => `
+          <section class="score-team-table">
+            <div class="score-team-title">
+              <strong>${escapeHtml(club?.name || "Equipo")}</strong>
+              <span>${teamPlayers.length} jugadores</span>
             </div>
-            <input data-score-player="${player._id}" type="number" step="1" value="${existing?.points ?? 0}" aria-label="Puntos de ${escapeHtml(player.name)}" />
-            <input data-score-note="${player._id}" value="${escapeHtml(existing?.note || "")}" placeholder="Nota" aria-label="Nota de ${escapeHtml(player.name)}" />
-          </article>
-        `;
-      })
+            <div class="score-table-head" aria-hidden="true">
+              <span>Jugador</span>
+              <span>Jugó</span>
+              <span>Goles</span>
+              <span>Pen/Dado</span>
+              <span>Ast</span>
+              <span>Pen Par</span>
+              <span>Picas</span>
+              <span>Pts</span>
+            </div>
+            ${teamPlayers.map((player) => renderScoreRow(player, match)).join("")}
+          </section>
+        `
+      )
       .join("")}
   `;
+  updateScorePreviews();
 }
 
 async function savePlayer(event) {
@@ -1665,19 +1800,32 @@ async function saveScore(event) {
       return;
     }
 
-    const inputs = [...els.scorePlayersList.querySelectorAll("[data-score-player]")];
-    const scores = inputs.map((input) => {
-      const noteInput = els.scorePlayersList.querySelector(`[data-score-note="${input.dataset.scorePlayer}"]`);
+    const homeScore = Number(els.scoreHomeInput.value);
+    const awayScore = Number(els.scoreAwayInput.value);
+    if (!Number.isFinite(homeScore) || homeScore < 0 || !Number.isFinite(awayScore) || awayScore < 0) {
+      showToast("Introduce un resultado valido.", "error");
+      return;
+    }
+
+    const rows = [...els.scorePlayersList.querySelectorAll("[data-score-row]")];
+    const scores = rows.map((row) => {
+      const player = state.admin.players.find((item) => item._id === row.dataset.scorePlayer);
       return {
-        playerId: input.dataset.scorePlayer,
-        points: Number(input.value || 0),
-        note: noteInput?.value || ""
+        playerId: row.dataset.scorePlayer,
+        played: Boolean(scoreInputValue(row, "played")),
+        commonGoals: scoreInputValue(row, "commonGoals"),
+        specialGoals: scoreInputValue(row, "specialGoals"),
+        assists: scoreInputValue(row, "assists"),
+        penaltySaves: player?.position === "POR" ? scoreInputValue(row, "penaltySaves") : 0,
+        picas: scoreInputValue(row, "picas")
       };
     });
 
     await api(`/api/admin/gameweeks/${gw._id}/matches/${match._id}/scores`, {
       method: "POST",
       body: {
+        homeScore,
+        awayScore,
         scores,
         markFinished: true
       }
@@ -1848,6 +1996,10 @@ function bindEvents() {
   els.scoreForm.addEventListener("submit", saveScore);
   els.matchGameweekInput.addEventListener("change", clearMatchEditMode);
   els.scoreMatchInput.addEventListener("change", renderScorePlayers);
+  els.scoreHomeInput.addEventListener("input", updateScorePreviews);
+  els.scoreAwayInput.addEventListener("input", updateScorePreviews);
+  els.scorePlayersList.addEventListener("input", updateScorePreviews);
+  els.scorePlayersList.addEventListener("change", updateScorePreviews);
   $("#adminView").addEventListener("click", async (event) => {
     const button = event.target.closest("button");
     if (!button) return;

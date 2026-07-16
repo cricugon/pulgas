@@ -873,6 +873,12 @@ button.leader-row:hover {
   gap: 10px;
 }
 
+.score-result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .score-context,
 .score-match-header {
   display: flex;
@@ -910,6 +916,104 @@ button.leader-row:hover {
 .score-player-row input[data-score-player] {
   text-align: center;
   font-weight: 900;
+}
+
+.score-team-table {
+  display: grid;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(2, 8, 21, 0.42);
+}
+
+.score-team-title {
+  position: sticky;
+  left: 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 760px;
+}
+
+.score-team-title span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.score-table-head,
+.score-stat-row {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.45fr) 72px repeat(5, 76px) 82px;
+  gap: 8px;
+  align-items: center;
+  min-width: 760px;
+}
+
+.score-table-head {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.score-stat-row {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.score-player-cell {
+  min-width: 0;
+}
+
+.score-player-cell strong,
+.score-player-cell small {
+  display: block;
+}
+
+.score-player-cell small {
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.score-played {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--text);
+  font-size: 0.76rem;
+}
+
+.score-played input {
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  accent-color: var(--cyan);
+}
+
+.score-number {
+  min-height: 36px;
+  padding: 0 6px;
+  text-align: center;
+  font-weight: 900;
+}
+
+.score-number:disabled {
+  opacity: 0.42;
+}
+
+.score-preview {
+  justify-self: end;
+  font-size: 0.82rem;
+}
+
+.score-stat-row.not-played {
+  opacity: 0.58;
 }
 
 .positive {
@@ -1054,6 +1158,10 @@ button.leader-row:hover {
   }
 
   .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .score-result-grid {
     grid-template-columns: 1fr;
   }
 

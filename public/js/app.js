@@ -57,6 +57,7 @@ const els = {
   squadList: $("#squadList"),
   marketList: $("#marketList"),
   positionFilter: $("#positionFilter"),
+  marketClubFilter: $("#marketClubFilter"),
   playerSearch: $("#playerSearch"),
   minPointsFilter: $("#minPointsFilter"),
   maxPriceFilter: $("#maxPriceFilter"),
@@ -71,6 +72,14 @@ const els = {
   leaderboardList: $("#leaderboardList"),
   gameweekLeaderboardList: $("#gameweekLeaderboardList"),
   historyGameweeksList: $("#historyGameweeksList"),
+  profileInfo: $("#profileInfo"),
+  profileTeamForm: $("#profileTeamForm"),
+  profileEmailInput: $("#profileEmailInput"),
+  profileTeamNameInput: $("#profileTeamNameInput"),
+  profilePasswordForm: $("#profilePasswordForm"),
+  profileCurrentPasswordInput: $("#profileCurrentPasswordInput"),
+  profileNewPasswordInput: $("#profileNewPasswordInput"),
+  profileConfirmPasswordInput: $("#profileConfirmPasswordInput"),
   lineupDetailModal: $("#lineupDetailModal"),
   lineupDetailTitle: $("#lineupDetailTitle"),
   lineupDetailBody: $("#lineupDetailBody"),
@@ -318,6 +327,7 @@ function setView(view) {
   if (view === "market") loadMarket();
   if (view === "lineup") loadLineup();
   if (view === "leaderboard") loadLeaderboard();
+  if (view === "profile") renderProfile();
   if (view === "admin") loadAdmin();
 }
 
@@ -343,7 +353,7 @@ function renderShell() {
   if (!isLoggedIn) return;
 
   const isAdmin = state.user.role === "admin";
-  ["dashboard", "market", "lineup", "leaderboard"].forEach((view) => {
+  ["dashboard", "market", "lineup", "leaderboard", "profile"].forEach((view) => {
     document.querySelector(`.tab[data-view="${view}"]`)?.classList.toggle("hidden", isAdmin);
   });
   els.adminTab.classList.toggle("hidden", !isAdmin);
@@ -368,6 +378,7 @@ function renderShell() {
   renderActiveGameweek();
   renderNews();
   renderSquad();
+  renderProfile();
 }
 
 const NEWS_LABELS = {
@@ -618,18 +629,85 @@ async function handleAuth(event) {
   }
 }
 
+function renderProfile() {
+  if (!state.user || state.user.role !== "user" || !els.profileInfo) return;
+
+  els.profileEmailInput.value = state.user.email || "";
+  els.profileTeamNameInput.value = state.user.teamName || "";
+  els.profileInfo.innerHTML = `
+    <article class="metric-card"><span>Equipo</span><strong>${escapeHtml(state.user.teamName || "-")}</strong></article>
+    <article class="metric-card"><span>Email</span><strong>${escapeHtml(state.user.email || "-")}</strong></article>
+    <article class="metric-card"><span>Estado</span><strong>${escapeHtml(state.user.status || "-")}</strong></article>
+    <article class="metric-card"><span>Presupuesto</span><strong>${formatEuro(state.user.budget || 0)}</strong></article>
+    <article class="metric-card"><span>Puntos</span><strong>${state.user.totalPoints || 0}</strong></article>
+    <article class="metric-card"><span>Jugadores liga</span><strong>${state.players.length || 0}</strong></article>
+  `;
+}
+
+async function saveProfileTeam(event) {
+  event.preventDefault();
+  try {
+    const data = await api("/api/auth/profile", {
+      method: "PATCH",
+      body: {
+        teamName: els.profileTeamNameInput.value
+      }
+    });
+
+    setSession(state.token, data.user);
+    showToast("Nombre de equipo actualizado.");
+  } catch (error) {
+    showToast(error.message, "error");
+  }
+}
+
+async function saveProfilePassword(event) {
+  event.preventDefault();
+  try {
+    const data = await api("/api/auth/profile", {
+      method: "PATCH",
+      body: {
+        currentPassword: els.profileCurrentPasswordInput.value,
+        newPassword: els.profileNewPasswordInput.value,
+        confirmPassword: els.profileConfirmPasswordInput.value
+      }
+    });
+
+    setSession(state.token, data.user);
+    els.profilePasswordForm.reset();
+    showToast("Password actualizada.");
+  } catch (error) {
+    showToast(error.message, "error");
+  }
+}
+
 async function loadMarket() {
   try {
     const data = await api("/api/market");
     state.marketPlayers = data.players;
+    renderMarketClubFilter();
     renderMarket();
   } catch (error) {
     showToast(error.message, "error");
   }
 }
 
+function renderMarketClubFilter() {
+  const current = els.marketClubFilter.value;
+  els.marketClubFilter.innerHTML = `
+    <option value="">Todos los clubes</option>
+    ${(state.clubs || [])
+      .map((club) => `<option value="${club._id}">${escapeHtml(club.shortName || club.name)} · ${escapeHtml(club.name)}</option>`)
+      .join("")}
+  `;
+  if ([...els.marketClubFilter.options].some((option) => option.value === current)) {
+    els.marketClubFilter.value = current;
+  }
+}
+
 function renderMarket() {
   const position = els.positionFilter.value;
+  const clubId = els.marketClubFilter.value;
   const search = els.playerSearch.value.trim().toLowerCase();
   const minPoints = els.minPointsFilter.value === "" ? null : Number(els.minPointsFilter.value);
   const maxPrice = els.maxPriceFilter.value === "" ? null : Number(els.maxPriceFilter.value);
@@ -638,10 +716,11 @@ function renderMarket() {
   const filtered = state.marketPlayers.filter((player) => {
     const club = player.club?.name || player.club?.shortName || "";
     const matchesPosition = !position || player.position === position;
+    const matchesClub = !clubId || objectId(player.club) === clubId;
     const matchesSearch = !search || `${player.name} ${club}`.toLowerCase().includes(search);
     const matchesPoints = minPoints === null || Number(player.totalPoints || 0) >= minPoints;
     const matchesPrice = maxPrice === null || Number(player.marketValue || 0) <= maxPrice;
-    return matchesPosition && matchesSearch && matchesPoints && matchesPrice;
+    return matchesPosition && matchesClub && matchesSearch && matchesPoints && matchesPrice;
   });
 
   let list = filtered.slice();
@@ -1400,7 +1479,7 @@ function renderAdmin() {
           <button class="mini-button" data-toggle-team="${team._id}" data-status="${team.status === "active" ? "suspended" : "active"}">
             ${team.status === "active" ? "Suspender" : "Activar"}
           </button>
-          <button class="mini-button" data-edit-team="${team._id}">Editar</button>
+          <button class="mini-button" data-edit-team="${team._id}">Editar nombre</button>
           <button class="mini-button danger" data-delete-team="${team._id}">Borrar</button>
         </div>
       </article>
@@ -1800,7 +1879,7 @@ function editTeam(teamId) {
   els.teamNameEditInput.value = team.teamName;
   els.teamBudgetInput.value = team.budget;
   els.teamStatusInput.value = team.status;
-  openAdminModal("team", "Editar equipo");
+  openAdminModal("team", "Editar nombre del equipo");
 }
 
 async function saveClub(event) {
@@ -2203,6 +2282,7 @@ function bindEvents() {
   });
 
   els.positionFilter.addEventListener("change", renderMarket);
+  els.marketClubFilter.addEventListener("change", renderMarket);
   els.playerSearch.addEventListener("input", renderMarket);
   els.minPointsFilter.addEventListener("input", renderMarket);
   els.maxPriceFilter.addEventListener("input", renderMarket);
@@ -2239,6 +2319,8 @@ function bindEvents() {
   els.formationSelect.addEventListener("change", handleFormationChange);
   els.lineupPlayers.addEventListener("change", handleLineupSlotChange);
   els.lineupForm.addEventListener("submit", saveLineup);
+  els.profileTeamForm.addEventListener("submit", saveProfileTeam);
+  els.profilePasswordForm.addEventListener("submit", saveProfilePassword);
 
   $("#leaderboardView").addEventListener("click", async (event) => {
     const modeButton = event.target.closest("[data-leaderboard-mode]");

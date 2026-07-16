@@ -387,9 +387,19 @@ select:focus {
 }
 
 .split-layout,
+.profile-layout,
 .admin-grid {
   display: grid;
   gap: 14px;
+}
+
+.profile-form {
+  display: grid;
+  gap: 12px;
+}
+
+.profile-form .primary-button {
+  width: 100%;
 }
 
 .news-panel {
@@ -1500,6 +1510,11 @@ button.leader-row:hover {
 
   .split-layout {
     grid-template-columns: 1.1fr 0.9fr;
+  }
+
+  .profile-layout {
+    grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+    align-items: start;
   }
 
   .admin-grid {

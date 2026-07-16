@@ -71,6 +71,7 @@
             <button class="tab" data-view="market">Mercado</button>
             <button class="tab" data-view="lineup">Alineacion</button>
             <button class="tab" data-view="leaderboard">Liga</button>
+            <button class="tab" data-view="profile">Perfil</button>
             <button id="adminTab" class="tab hidden" data-view="admin">Admin</button>
           </nav>
 
@@ -136,6 +137,9 @@
                     <option value="DEF">DEF</option>
                     <option value="MED">MED</option>
                     <option value="DEL">DEL</option>
+                  </select>
+                  <select id="marketClubFilter" aria-label="Filtrar por club">
+                    <option value="">Todos los clubes</option>
                   </select>
                   <input id="playerSearch" type="search" placeholder="Buscar jugador" />
                   <input id="minPointsFilter" type="number" placeholder="Puntos min." />
@@ -204,6 +208,55 @@
             </section>
           </section>
 
+          <section id="profileView" class="view">
+            <div class="profile-layout">
+              <section class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h3>Perfil</h3>
+                    <p>Datos de tu cuenta y equipo.</p>
+                  </div>
+                </div>
+                <div id="profileInfo" class="metric-grid mini"></div>
+                <form id="profileTeamForm" class="profile-form">
+                  <label>
+                    Email
+                    <input id="profileEmailInput" type="email" disabled />
+                  </label>
+                  <label>
+                    Nombre del equipo
+                    <input id="profileTeamNameInput" type="text" required />
+                  </label>
+                  <button class="primary-button" type="submit">Guardar nombre</button>
+                </form>
+              </section>
+
+              <section class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h3>Contraseña</h3>
+                    <p>Actualiza tu contraseña manteniendo el mismo email.</p>
+                  </div>
+                </div>
+                <form id="profilePasswordForm" class="profile-form">
+                  <label>
+                    Password actual
+                    <input id="profileCurrentPasswordInput" type="password" autocomplete="current-password" required />
+                  </label>
+                  <label>
+                    Nueva password
+                    <input id="profileNewPasswordInput" type="password" autocomplete="new-password" minlength="6" required />
+                  </label>
+                  <label>
+                    Repetir nueva password
+                    <input id="profileConfirmPasswordInput" type="password" autocomplete="new-password" minlength="6" required />
+                  </label>
+                  <button class="primary-button" type="submit">Cambiar password</button>
+                </form>
+              </section>
+            </div>
+          </section>
+
           <section id="adminView" class="view">
             <nav class="admin-tabs" aria-label="Secciones de administracion">
               <button class="admin-tab active" data-admin-section="overview" type="button">Resumen</button>
@@ -260,7 +313,7 @@
               <article class="panel admin-section-panel" data-admin-section-panel="teams">
                 <div class="panel-header">
                   <h3>Equipos de usuarios</h3>
-                  <span class="pill">Suspender · editar · borrar</span>
+                  <span class="pill">Suspender · editar nombre · borrar</span>
                 </div>
                 <form id="teamForm" class="admin-form modal-form hidden">
                   <input type="hidden" id="teamIdInput" />

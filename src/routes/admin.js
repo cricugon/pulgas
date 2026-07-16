@@ -360,6 +360,13 @@ adminRouter.patch("/teams/:id", async (req, res) => {
     if (req.body[field] !== undefined) allowed[field] = req.body[field];
   }
 
+  if (allowed.teamName !== undefined) {
+    allowed.teamName = String(allowed.teamName).trim();
+    if (!allowed.teamName) {
+      return res.status(400).json({ message: "El nombre del equipo no puede estar vacio." });
+    }
+  }
+
   if (allowed.budget !== undefined) allowed.budget = Number(allowed.budget);
 
   const team = await User.findOneAndUpdate(

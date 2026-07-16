@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import express from "express";
-import { signToken, requireAuth } from "../middleware/auth.js";
+import { signToken, requireAuth, requireTeamUser } from "../middleware/auth.js";
 import { getLeagueSettings } from "../models/Settings.js";
 import { User } from "../models/User.js";
 import { publishNews } from "../services/news.js";
@@ -99,4 +99,46 @@ authRouter.get("/me", requireAuth, async (req, res) => {
     .populate({ path: "squad", populate: { path: "club" } });
 
   res.json({ user: publicUser(user) });
+});
+
+authRouter.patch("/profile", requireAuth, requireTeamUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "Usuario no encontrado." });
+
+    if (req.body.teamName !== undefined) {
+      const teamName = String(req.body.teamName || "").trim();
+      if (!teamName) {
+        return res.status(400).json({ message: "El nombre del equipo no puede estar vacio." });
+      }
+      user.teamName = teamName;
+    }
+
+    const newPassword = String(req.body.newPassword || "");
+    if (newPassword) {
+      const currentPassword = String(req.body.currentPassword || "");
+      const confirmPassword = String(req.body.confirmPassword || "");
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "La nueva password debe tener al menos 6 caracteres." });
+      }
+
+      if (newPassword !== confirmPassword) {
+        return res.status(400).json({ message: "La confirmacion de password no coincide." });
+      }
+
+      const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!ok) {
+        return res.status(401).json({ message: "La password actual no es correcta." });
+      }
+
+      user.passwordHash = await bcrypt.hash(newPassword, 12);
+    }
+
+    await user.save();
+
+    res.json({ message: "Perfil actualizado.", user: publicUser(user) });
+  } catch (error) {
+    res.status(400).json({ message: "No se pudo actualizar el perfil.", detail: error.message });
+  }
 });

@@ -1357,19 +1357,34 @@ function renderGameweekRows(leaderboard, gameweek) {
     return `<p class="hint">Esta jornada todavia no tiene alineaciones bloqueadas.</p>`;
   }
 
+  const revealLineups = gameweek.status !== "draft";
   return leaderboard
-    .map(
-      (team) => `
-        <button class="leader-row leader-row-button" data-lineup-team="${team.teamId}" data-lineup-gameweek="${gameweek._id}" type="button">
-          <span class="rank">#${team.rank}</span>
-          <span>
-            <strong>${escapeHtml(team.teamName)}</strong>
-            <small>Formacion 1-${escapeHtml(team.formation || "2-2-2")} - ${formatEuro(team.budgetValue || 0)}</small>
-          </span>
-          <strong>${formatPoints(team.points)}</strong>
-        </button>
-      `
-    )
+    .map((team) => {
+      const rowContent = `
+        <span class="rank">#${team.rank}</span>
+        <span>
+          <strong>${escapeHtml(team.teamName)}</strong>
+          <small>${
+            revealLineups
+              ? `Formacion 1-${escapeHtml(team.formation || "2-2-2")} - ${formatEuro(team.budgetValue || 0)}`
+              : "Alineacion oculta hasta que empiece la jornada"
+          }</small>
+        </span>
+        <strong>${formatPoints(team.points)}</strong>
+      `;
+
+      return revealLineups
+        ? `
+          <button class="leader-row leader-row-button" data-lineup-team="${team.teamId}" data-lineup-gameweek="${gameweek._id}" type="button">
+            ${rowContent}
+          </button>
+        `
+        : `
+          <article class="leader-row leader-row-locked">
+            ${rowContent}
+          </article>
+        `;
+    })
     .join("");
 }
 
@@ -1390,6 +1405,11 @@ function findLineupDetails(gameweekId, teamId) {
 
 function openLineupDetail(gameweekId, teamId) {
   const details = findLineupDetails(gameweekId, teamId);
+  if (details?.gameweek?.status === "draft") {
+    showToast("La alineacion se podra ver cuando empiece la jornada.", "error");
+    return;
+  }
+
   if (!details?.lineup) {
     showToast("No se encontro la alineacion.", "error");
     return;

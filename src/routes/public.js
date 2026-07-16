@@ -18,15 +18,22 @@ function serializePlayerForLineup(player, scoreMap) {
   };
 }
 
-function serializeLineupForLeaderboard(lineup, scoreMap, rank) {
-  return {
+function serializeLineupForLeaderboard(lineup, scoreMap, rank, revealLineup = true) {
+  const base = {
     rank,
     teamId: lineup.user._id,
     teamName: lineup.user.teamName,
     teamStatus: lineup.user.status,
     totalPoints: lineup.user.totalPoints,
-    formation: lineup.formation,
     points: lineup.points || 0,
+    lineupVisible: revealLineup
+  };
+
+  if (!revealLineup) return base;
+
+  return {
+    ...base,
+    formation: lineup.formation,
     budgetValue: lineup.budgetValue || 0,
     lockedAt: lineup.lockedAt,
     players: (lineup.players || [])
@@ -187,6 +194,7 @@ publicRouter.get("/gameweeks/:id/leaderboard", async (req, res) => {
     .populate("user", "teamName status totalPoints role")
     .populate({ path: "players", populate: { path: "club" } });
 
+  const revealLineups = gameweek.status !== "draft";
   const leaderboard = lineups
     .filter((lineup) => lineup.user?.role === "user")
     .sort((a, b) => {
@@ -194,7 +202,7 @@ publicRouter.get("/gameweeks/:id/leaderboard", async (req, res) => {
       if (pointDelta !== 0) return pointDelta;
       return String(a.user.teamName || "").localeCompare(String(b.user.teamName || ""));
     })
-    .map((lineup, index) => serializeLineupForLeaderboard(lineup, scoreMap, index + 1));
+    .map((lineup, index) => serializeLineupForLeaderboard(lineup, scoreMap, index + 1, revealLineups));
 
   res.json({ gameweek, leaderboard });
 });

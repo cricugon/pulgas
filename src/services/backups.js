@@ -7,7 +7,17 @@ import { Player } from "../models/Player.js";
 import { Settings, getLeagueSettings } from "../models/Settings.js";
 import { User } from "../models/User.js";
 
-const GAME_FIELDS = ["role", "status", "teamName", "budget", "squad", "totalPoints"];
+const BACKUP_SCHEMA_VERSION = 2;
+const PRESERVED_USER_ACCOUNT_FIELDS = new Set(["_id", "email", "passwordHash", "createdAt", "updatedAt", "__v"]);
+const BACKUP_COLLECTIONS = [
+  { key: "users", Model: User },
+  { key: "clubs", Model: Club },
+  { key: "players", Model: Player },
+  { key: "gameweeks", Model: Gameweek },
+  { key: "lineups", Model: Lineup },
+  { key: "settings", Model: Settings },
+  { key: "news", Model: NewsItem }
+];
 
 function cleanDocs(docs = []) {
   return docs.map((doc) => ({ ...doc }));
@@ -15,12 +25,14 @@ function cleanDocs(docs = []) {
 
 function countSnapshot(snapshot) {
   return {
-    users: snapshot.users.length,
-    clubs: snapshot.clubs.length,
-    players: snapshot.players.length,
-    gameweeks: snapshot.gameweeks.length,
-    lineups: snapshot.lineups.length,
-    news: snapshot.news?.length || 0
+    users: snapshot.users?.length || 0,
+    clubs: snapshot.clubs?.length || 0,
+    players: snapshot.players?.length || 0,
+    gameweeks: snapshot.gameweeks?.length || 0,
+    lineups: snapshot.lineups?.length || 0,
+    settings: snapshot.settings?.length || 0,
+    news: snapshot.news?.length || 0,
+    collections: BACKUP_COLLECTIONS.length
   };
 }
 
@@ -37,25 +49,24 @@ async function insertManyIfAny(Model, docs) {
 }
 
 async function snapshotLeague() {
-  const [users, clubs, players, gameweeks, lineups, settings, news] = await Promise.all([
-    User.find({}).lean(),
-    Club.find({}).lean(),
-    Player.find({}).lean(),
-    Gameweek.find({}).lean(),
-    Lineup.find({}).lean(),
-    Settings.find({}).lean(),
-    NewsItem.find({}).lean()
-  ]);
-
-  return {
-    users,
-    clubs,
-    players,
-    gameweeks,
-    lineups,
-    settings,
-    news
+  await getLeagueSettings();
+  const entries = await Promise.all(
+    BACKUP_COLLECTIONS.map(async ({ key, Model }) => [key, await Model.find({}).lean()])
+  );
+  const snapshot = Object.fromEntries(entries);
+  snapshot.meta = {
+    schemaVersion: BACKUP_SCHEMA_VERSION,
+    generatedAt: new Date(),
+    collections: BACKUP_COLLECTIONS.map(({ key, Model }) => ({
+      key,
+      model: Model.modelName,
+      collection: Model.collection.name,
+      documents: snapshot[key]?.length || 0,
+      fields: Object.keys(Model.schema.paths)
+    }))
   };
+
+  return snapshot;
 }
 
 export async function createLeagueBackup({
@@ -82,8 +93,8 @@ export async function createLeagueBackup({
 
 function userGameUpdate(snapshotUser, initialBudget) {
   const update = {};
-  for (const field of GAME_FIELDS) {
-    if (snapshotUser[field] !== undefined) update[field] = snapshotUser[field];
+  for (const [field, value] of Object.entries(snapshotUser || {})) {
+    if (!PRESERVED_USER_ACCOUNT_FIELDS.has(field)) update[field] = value;
   }
 
   if (update.role === "admin") {
@@ -204,6 +215,7 @@ export async function restoreLeagueBackup(backupId, { restoredBy = null, restore
       players: snapshot.players || [],
       gameweeks: snapshot.gameweeks || [],
       lineups: snapshot.lineups || [],
+      settings: snapshot.settings || [],
       news: snapshot.news || []
     })
   };

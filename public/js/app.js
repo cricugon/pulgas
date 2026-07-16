@@ -1739,7 +1739,8 @@ function renderAdminBackup(backup) {
     <article class="admin-row backup-row">
       <div>
         <strong>${escapeHtml(backup.name)}</strong>
-        <small>${escapeHtml(reasonLabel)} - ${formatDateTime(backup.createdAt)} - ${counts.players || 0} jugadores - ${counts.gameweeks || 0} jornadas - ${counts.lineups || 0} alineaciones - ${counts.news || 0} noticias</small>
+        <small>${escapeHtml(reasonLabel)} - ${formatDateTime(backup.createdAt)} - ${counts.players || 0} jugadores - ${counts.gameweeks || 0} jornadas - ${counts.lineups || 0} alineaciones - ${counts.news || 0} noticias - ${counts.settings || 0} config.</small>
+        <small>Colecciones snapshot: ${counts.collections || 7}</small>
         <small>Usuarios snapshot: ${counts.users || 0}${backup.createdByEmail ? ` - creado por ${escapeHtml(backup.createdByEmail)}` : ""}</small>
       </div>
       <div class="row-actions">

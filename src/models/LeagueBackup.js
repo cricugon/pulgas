@@ -17,17 +17,11 @@ const leagueBackupSchema = new mongoose.Schema(
       players: { type: Number, default: 0 },
       gameweeks: { type: Number, default: 0 },
       lineups: { type: Number, default: 0 },
+      settings: { type: Number, default: 0 },
+      collections: { type: Number, default: 0 },
       news: { type: Number, default: 0 }
     },
-    snapshot: {
-      users: [{ type: mongoose.Schema.Types.Mixed }],
-      clubs: [{ type: mongoose.Schema.Types.Mixed }],
-      players: [{ type: mongoose.Schema.Types.Mixed }],
-      gameweeks: [{ type: mongoose.Schema.Types.Mixed }],
-      lineups: [{ type: mongoose.Schema.Types.Mixed }],
-      settings: [{ type: mongoose.Schema.Types.Mixed }],
-      news: [{ type: mongoose.Schema.Types.Mixed }]
-    }
+    snapshot: { type: mongoose.Schema.Types.Mixed, default: {} }
   },
   { timestamps: true }
 );

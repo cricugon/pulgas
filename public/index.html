@@ -84,6 +84,14 @@
           <section id="toast" class="toast hidden" role="status"></section>
 
           <section id="dashboardView" class="view active">
+            <section class="panel active-gameweek-panel">
+              <div class="panel-header">
+                <h3>Jornada activa</h3>
+                <button class="ghost-button" data-refresh>Actualizar</button>
+              </div>
+              <div id="matchesList" class="match-list"></div>
+            </section>
+
             <button class="rules-banner" data-view="rules" type="button">
               <span>
                 <strong>Consulta las reglas y sistema de puntuacion</strong>
@@ -96,11 +104,12 @@
               <div class="panel-header">
                 <div>
                   <h3>Tablon de noticias</h3>
-                  <p>Ultimos movimientos importantes de la liga.</p>
+                  <p>Todas las noticias de la liga, con las fijadas siempre arriba.</p>
                 </div>
                 <button class="ghost-button" data-refresh>Actualizar</button>
               </div>
               <div id="newsList" class="news-list"></div>
+              <div id="newsScrollSentinel" class="news-scroll-sentinel">Cargando mas noticias...</div>
             </section>
 
             <div class="metric-grid">
@@ -124,7 +133,7 @@
                   <h3>Jornada activa</h3>
                   <button class="ghost-button" data-refresh>Actualizar</button>
                 </div>
-                <div id="matchesList" class="match-list"></div>
+                <div id="legacyMatchesList" class="match-list"></div>
               </section>
 
               <section class="panel">
@@ -285,7 +294,10 @@
                   <span id="lineupCount" class="pill">0 puestos</span>
                 </div>
                 <div id="lineupPlayers" class="tactical-pitch"></div>
-                <button class="primary-button full-width" type="submit">Guardar alineacion</button>
+                <button id="lineupSubmitBtn" class="primary-button full-width" type="submit">
+                  <span class="button-spinner" aria-hidden="true"></span>
+                  <span data-lineup-submit-label>Guardar alineacion</span>
+                </button>
               </form>
             </section>
           </section>

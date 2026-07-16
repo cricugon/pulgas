@@ -151,12 +151,41 @@ button {
 }
 
 .primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 0 16px;
   border-color: rgba(68, 224, 255, 0.5);
   background: linear-gradient(135deg, #145cff, #44e0ff);
   color: #031024;
   font-weight: 800;
   box-shadow: 0 12px 36px rgba(47, 124, 255, 0.26);
+}
+
+.primary-button.loading {
+  cursor: progress;
+  opacity: 0.86;
+}
+
+.button-spinner {
+  display: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(3, 16, 36, 0.28);
+  border-top-color: #031024;
+  border-radius: 999px;
+  animation: button-spin 0.75s linear infinite;
+}
+
+.primary-button.loading .button-spinner {
+  display: inline-block;
+}
+
+@keyframes button-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .full-width {
@@ -463,10 +492,35 @@ textarea:focus {
   margin-bottom: 14px;
 }
 
-.rules-banner {
+#dashboardView > .metric-grid:not(.mini),
+#dashboardView > .split-layout {
+  display: none;
+}
+
+.news-scroll-sentinel {
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.news-scroll-sentinel.done {
+  color: rgba(159, 179, 216, 0.68);
+}
+
+.active-gameweek-panel {
   position: sticky;
   top: 126px;
   z-index: 8;
+  margin-bottom: 14px;
+  background: rgba(11, 20, 41, 0.98);
+}
+
+.rules-banner {
+  position: static;
   display: flex;
   gap: 12px;
   align-items: center;
@@ -1670,8 +1724,11 @@ button.leader-row:hover {
     display: none;
   }
 
-  .rules-banner {
+  .active-gameweek-panel {
     top: 118px;
+  }
+
+  .rules-banner {
     align-items: flex-start;
   }
 

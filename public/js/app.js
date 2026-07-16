@@ -9,9 +9,16 @@ const state = {
   marketMode: "all",
   gameweeks: [],
   news: [],
+  newsPagination: {
+    limit: 20,
+    offset: 0,
+    hasMore: true,
+    loading: false
+  },
   activeGameweek: null,
   currentLineup: null,
   lineupDraft: null,
+  lineupSaving: false,
   lineupPicker: {
     slotKey: "",
     position: ""
@@ -60,6 +67,7 @@ const els = {
   squadValue: $("#squadValue"),
   matchesList: $("#matchesList"),
   newsList: $("#newsList"),
+  newsScrollSentinel: $("#newsScrollSentinel"),
   squadList: $("#squadList"),
   marketList: $("#marketList"),
   positionFilter: $("#positionFilter"),
@@ -75,6 +83,7 @@ const els = {
   lineupCap: $("#lineupCap"),
   lineupCount: $("#lineupCount"),
   lineupHelp: $("#lineupHelp"),
+  lineupSubmitBtn: $("#lineupSubmitBtn"),
   lineupPickerModal: $("#lineupPickerModal"),
   lineupPickerTitle: $("#lineupPickerTitle"),
   lineupPickerBudget: $("#lineupPickerBudget"),
@@ -440,6 +449,16 @@ function renderNews() {
   els.newsList.innerHTML = state.news.length
     ? state.news.map(renderNewsItem).join("")
     : `<p class="hint">Todavia no hay noticias publicadas.</p>`;
+
+  if (els.newsScrollSentinel) {
+    const { loading, hasMore } = state.newsPagination;
+    els.newsScrollSentinel.classList.toggle("done", !hasMore);
+    els.newsScrollSentinel.textContent = loading
+      ? "Cargando mas noticias..."
+      : hasMore
+        ? "Baja para cargar mas noticias"
+        : "No hay mas noticias.";
+  }
 }
 
 function renderNewsItem(item) {
@@ -453,6 +472,58 @@ function renderNewsItem(item) {
       </div>
     </article>
   `;
+}
+
+async function loadNewsPage({ reset = false } = {}) {
+  if (state.newsPagination.loading) return;
+
+  if (reset) {
+    state.newsPagination.offset = 0;
+    state.newsPagination.hasMore = true;
+    state.news = [];
+  }
+
+  if (!state.newsPagination.hasMore) {
+    renderNews();
+    return;
+  }
+
+  state.newsPagination.loading = true;
+  renderNews();
+
+  try {
+    const { limit, offset } = state.newsPagination;
+    const data = await api(`/api/news?limit=${limit}&offset=${offset}`);
+    const items = data.news || [];
+    state.news = reset ? items : [...state.news, ...items];
+    state.newsPagination.offset = state.news.length;
+    state.newsPagination.hasMore = Boolean(data.pagination?.hasMore);
+  } finally {
+    state.newsPagination.loading = false;
+    renderNews();
+  }
+}
+
+function setupNewsInfiniteScroll() {
+  if (!els.newsScrollSentinel) return;
+
+  if (!("IntersectionObserver" in window)) {
+    window.addEventListener("scroll", () => {
+      if (state.activeView !== "dashboard") return;
+      const nearBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 240;
+      if (nearBottom) loadNewsPage();
+    });
+    return;
+  }
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      if (state.activeView !== "dashboard") return;
+      if (entries.some((entry) => entry.isIntersecting)) loadNewsPage();
+    },
+    { rootMargin: "220px 0px" }
+  );
+  observer.observe(els.newsScrollSentinel);
 }
 
 function renderActiveGameweek() {
@@ -631,19 +702,18 @@ function renderPlayerCard(player, options = {}) {
 }
 
 async function refreshCore() {
-  const [me, activeGameweek, players, clubs, news] = await Promise.all([
+  const [me, activeGameweek, players, clubs] = await Promise.all([
     api("/api/auth/me"),
     api("/api/gameweeks/active"),
     api("/api/players"),
-    api("/api/clubs"),
-    api("/api/news")
+    api("/api/clubs")
   ]);
 
   state.user = me.user;
   state.activeGameweek = activeGameweek.gameweek;
   state.players = players.players;
   state.clubs = clubs.clubs;
-  state.news = news.news || [];
+  await loadNewsPage({ reset: true });
   renderShell();
 }
 
@@ -975,6 +1045,10 @@ function renderLineup() {
 
   if (!gw) {
     els.lineupPlayers.innerHTML = `<p class="hint">No hay jornada disponible.</p>`;
+    els.lineupHelp.textContent = "Selecciona 7 jugadores contando el portero.";
+    els.lineupCap.textContent = `Restante ${formatEuro(0)} / Total ${formatEuro(0)}`;
+    els.lineupCount.textContent = "0 puestos";
+    updateLineupSubmitState();
     return;
   }
 
@@ -1002,7 +1076,7 @@ function renderLineup() {
       ? "Elige jugadores de los equipos que juegan esta jornada sin superar tu presupuesto."
       : `La jornada esta ${gw.status}; la alineacion ya no se puede editar.`;
 
-  els.lineupForm.querySelector("button[type='submit']").disabled = gw.status !== "draft";
+  updateLineupSubmitState();
 
   if (!eligiblePlayers.length) {
     els.lineupPlayers.innerHTML = `<p class="hint">No hay jugadores alineables: configura primero los partidos de esta jornada.</p>`;
@@ -1017,7 +1091,7 @@ function renderLineup() {
 }
 
 function renderFormationSelect() {
-  els.formationSelect.disabled = state.activeGameweek?.status !== "draft";
+  els.formationSelect.disabled = state.activeGameweek?.status !== "draft" || state.lineupSaving;
   els.formationSelect.innerHTML = FORMATIONS.map((formation) => {
     const selected = formation === state.lineupDraft.formation ? "selected" : "";
     return `<option value="${formation}" ${selected}>1-${formation} · ${formationPlayerCount(formation)} jugadores</option>`;
@@ -1029,7 +1103,7 @@ function renderPitch() {
   const formation = state.lineupDraft.formation;
   const slots = formationSlots(formation);
   const selectedBySlot = alignDraftToSlots(slots);
-  const disabled = state.activeGameweek?.status !== "draft" ? "disabled" : "";
+  const disabled = state.activeGameweek?.status !== "draft" || state.lineupSaving ? "disabled" : "";
   const lines = [
     { position: "DEL", slots: slots.filter((slot) => slot.position === "DEL") },
     { position: "MED", slots: slots.filter((slot) => slot.position === "MED") },
@@ -1105,6 +1179,24 @@ function updateLineupCapFromSelection() {
   state.lineupDraft.playerIds = selectedIds;
 }
 
+function updateLineupSubmitState() {
+  const button = els.lineupSubmitBtn || els.lineupForm?.querySelector("button[type='submit']");
+  if (!button) return;
+
+  const canEdit = state.activeGameweek?.status === "draft";
+  button.disabled = !canEdit || state.lineupSaving;
+  button.classList.toggle("loading", state.lineupSaving);
+  button.setAttribute("aria-busy", state.lineupSaving ? "true" : "false");
+
+  const label = button.querySelector("[data-lineup-submit-label]");
+  if (label) label.textContent = state.lineupSaving ? "Guardando..." : "Guardar alineacion";
+}
+
+function setLineupSaving(isSaving) {
+  state.lineupSaving = isSaving;
+  updateLineupSubmitState();
+}
+
 function getSelectedLineupPlayerIds() {
   const valuesBySlot = new Map(
     $$("input[name='slotPlayerIds']").map((input) => [input.dataset.slot, input.value])
@@ -1162,7 +1254,7 @@ function pickerPlayerState(player, context) {
 }
 
 function openLineupPicker(slotKey, position) {
-  if (state.activeGameweek?.status !== "draft") return;
+  if (state.activeGameweek?.status !== "draft" || state.lineupSaving) return;
 
   state.lineupPicker = { slotKey, position };
   els.lineupPickerSearch.value = "";
@@ -1246,6 +1338,8 @@ function clearLineupPickerSelection() {
 
 async function saveLineup(event) {
   event.preventDefault();
+  if (state.lineupSaving) return;
+
   try {
     const gw = state.activeGameweek;
     if (!gw?._id) return;
@@ -1270,6 +1364,8 @@ async function saveLineup(event) {
       return;
     }
 
+    setLineupSaving(true);
+
     const data = await api(`/api/lineups/${gw._id}`, {
       method: "POST",
       body: {
@@ -1280,10 +1376,12 @@ async function saveLineup(event) {
 
     state.currentLineup = data.lineup;
     await refreshCore();
-    renderLineup();
-    showToast("Alineacion guardada.");
+    showToast("Alineacion guardada correctamente.");
   } catch (error) {
     showToast(error.message, "error");
+  } finally {
+    setLineupSaving(false);
+    renderLineup();
   }
 }
 
@@ -2716,6 +2814,7 @@ function bindEvents() {
 
 async function bootstrap() {
   bindEvents();
+  setupNewsInfiniteScroll();
   setAuthMode("login");
 
   if (!state.token) {

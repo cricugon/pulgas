@@ -71,10 +71,26 @@ publicRouter.get("/clubs", async (_req, res) => {
 
 publicRouter.get("/news", async (req, res) => {
   const requestedLimit = Number(req.query.limit || 30);
+  const requestedOffset = Number(req.query.offset || 0);
   const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : 30, 1), 100);
-  const news = await NewsItem.find({}).sort({ pinned: -1, pinnedAt: -1, createdAt: -1 }).limit(limit);
+  const offset = Math.max(Number.isFinite(requestedOffset) ? Math.floor(requestedOffset) : 0, 0);
+  const [news, total] = await Promise.all([
+    NewsItem.find({})
+      .sort({ pinned: -1, pinnedAt: -1, createdAt: -1 })
+      .skip(offset)
+      .limit(limit),
+    NewsItem.countDocuments({})
+  ]);
 
-  res.json({ news });
+  res.json({
+    news,
+    pagination: {
+      limit,
+      offset,
+      total,
+      hasMore: offset + news.length < total
+    }
+  });
 });
 
 publicRouter.get("/players", async (req, res) => {

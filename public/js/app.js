@@ -28,6 +28,7 @@ const state = {
     teams: [],
     clubs: [],
     gameweeks: [],
+    news: [],
     backups: []
   }
 };
@@ -129,6 +130,14 @@ const els = {
   clubShortInput: $("#clubShortInput"),
   clubCityInput: $("#clubCityInput"),
   adminClubs: $("#adminClubs"),
+  newsForm: $("#newsForm"),
+  newsIdInput: $("#newsIdInput"),
+  newsTitleInput: $("#newsTitleInput"),
+  newsBodyInput: $("#newsBodyInput"),
+  newsPinnedInput: $("#newsPinnedInput"),
+  newsSubmitBtn: $("#newsSubmitBtn"),
+  newsResetBtn: $("#newsResetBtn"),
+  adminNews: $("#adminNews"),
   adminBackups: $("#adminBackups"),
   gameweekForm: $("#gameweekForm"),
   gwIdInput: $("#gwIdInput"),
@@ -433,10 +442,10 @@ function renderNews() {
 function renderNewsItem(item) {
   const label = NEWS_LABELS[item.type] || "Liga";
   return `
-    <article class="news-item">
-      <span class="news-type">${escapeHtml(label)}</span>
+    <article class="news-item ${item.pinned ? "pinned" : ""}">
+      <span class="news-type">${item.pinned ? "Fijada" : escapeHtml(label)}</span>
       <div>
-        <strong>${escapeHtml(item.title)}</strong>
+        <strong>${escapeHtml(item.title)}${item.pinned ? ` <span class="news-pin">Fijada</span>` : ""}</strong>
         <small>${formatDateTime(item.createdAt)}${item.body ? ` - ${escapeHtml(item.body)}` : ""}</small>
       </div>
     </article>
@@ -1497,6 +1506,7 @@ function openAdminModal(kind, title) {
     player: els.playerForm,
     team: els.teamForm,
     club: els.clubForm,
+    news: els.newsForm,
     gameweek: els.gameweekForm,
     match: els.matchForm,
     score: els.scoreForm
@@ -1540,6 +1550,12 @@ function openCreateModal(kind) {
     return;
   }
 
+  if (kind === "news") {
+    resetNewsForm();
+    openAdminModal("news", "Nueva noticia");
+    return;
+  }
+
   if (kind === "gameweek") {
     resetGameweekForm();
     els.gwStatusInput.value = "draft";
@@ -1564,13 +1580,14 @@ async function loadAdmin() {
   if (state.user?.role !== "admin") return;
 
   try {
-    const [summary, settings, players, teams, clubs, gameweeks, backups] = await Promise.all([
+    const [summary, settings, players, teams, clubs, gameweeks, news, backups] = await Promise.all([
       api("/api/admin/summary"),
       api("/api/admin/settings"),
       api("/api/admin/players"),
       api("/api/admin/teams"),
       api("/api/admin/clubs"),
       api("/api/gameweeks"),
+      api("/api/admin/news"),
       api("/api/admin/backups")
     ]);
 
@@ -1580,6 +1597,7 @@ async function loadAdmin() {
     state.admin.teams = teams.teams;
     state.admin.clubs = clubs.clubs;
     state.admin.gameweeks = gameweeks.gameweeks;
+    state.admin.news = news.news;
     state.admin.backups = backups.backups;
     renderAdmin();
   } catch (error) {
@@ -1671,6 +1689,12 @@ function renderAdmin() {
     )
     .join("");
 
+  els.adminNews.innerHTML = state.admin.news.length
+    ? state.admin.news
+        .map(renderAdminNewsItem)
+        .join("")
+    : `<p class="hint">Todavia no hay noticias manuales ni automaticas.</p>`;
+
   els.adminBackups.innerHTML = state.admin.backups.length
     ? state.admin.backups
         .map(renderAdminBackup)
@@ -1678,6 +1702,26 @@ function renderAdmin() {
     : `<p class="hint">Todavia no hay backups.</p>`;
 
   els.adminGameweeks.innerHTML = state.admin.gameweeks.map(renderAdminGameweek).join("");
+}
+
+function renderAdminNewsItem(item) {
+  const label = NEWS_LABELS[item.type] || "Liga";
+  return `
+    <article class="admin-row news-admin-row ${item.pinned ? "pinned" : ""}">
+      <div>
+        <strong>${escapeHtml(item.title)}</strong>
+        <small>${escapeHtml(label)} - ${formatDateTime(item.createdAt)}${item.pinned ? " - fijada arriba" : ""}</small>
+        ${item.body ? `<small>${escapeHtml(item.body)}</small>` : ""}
+      </div>
+      <div class="row-actions">
+        <button class="mini-button" data-toggle-news-pin="${item._id}" data-pinned="${item.pinned ? "false" : "true"}">
+          ${item.pinned ? "Desfijar" : "Fijar"}
+        </button>
+        <button class="mini-button" data-edit-news="${item._id}">Editar</button>
+        <button class="mini-button danger" data-delete-news="${item._id}">Borrar</button>
+      </div>
+    </article>
+  `;
 }
 
 function renderAdminBackup(backup) {
@@ -2086,6 +2130,47 @@ function resetClubForm() {
   els.clubIdInput.value = "";
 }
 
+async function saveNews(event) {
+  event.preventDefault();
+  const id = els.newsIdInput.value;
+
+  try {
+    await api(id ? `/api/admin/news/${id}` : "/api/admin/news", {
+      method: id ? "PUT" : "POST",
+      body: {
+        title: els.newsTitleInput.value,
+        body: els.newsBodyInput.value,
+        pinned: els.newsPinnedInput.checked
+      }
+    });
+    resetNewsForm();
+    closeAdminModal();
+    await loadAdmin();
+    await refreshCore();
+    showToast(id ? "Noticia actualizada." : "Noticia publicada.");
+  } catch (error) {
+    showToast(error.message, "error");
+  }
+}
+
+function editNews(newsId) {
+  const item = state.admin.news.find((news) => news._id === newsId);
+  if (!item) return;
+
+  els.newsIdInput.value = item._id;
+  els.newsTitleInput.value = item.title;
+  els.newsBodyInput.value = item.body || "";
+  els.newsPinnedInput.checked = Boolean(item.pinned);
+  els.newsSubmitBtn.textContent = "Actualizar noticia";
+  openAdminModal("news", "Editar noticia");
+}
+
+function resetNewsForm() {
+  els.newsForm.reset();
+  els.newsIdInput.value = "";
+  els.newsSubmitBtn.textContent = "Publicar noticia";
+}
+
 async function saveSettings(event) {
   event.preventDefault();
   try {
@@ -2361,6 +2446,39 @@ async function adminAction(target) {
     return;
   }
 
+  if (target.dataset.editNews) {
+    editNews(target.dataset.editNews);
+    return;
+  }
+
+  if (target.dataset.toggleNewsPin) {
+    const item = state.admin.news.find((news) => news._id === target.dataset.toggleNewsPin);
+    if (!item) return;
+
+    await api(`/api/admin/news/${item._id}`, {
+      method: "PUT",
+      body: {
+        title: item.title,
+        body: item.body || "",
+        pinned: target.dataset.pinned === "true"
+      }
+    });
+    await loadAdmin();
+    await refreshCore();
+    showToast(target.dataset.pinned === "true" ? "Noticia fijada." : "Noticia desfijada.");
+    return;
+  }
+
+  if (target.dataset.deleteNews) {
+    const ok = window.confirm("Confirma borrar esta noticia del tablon.");
+    if (!ok) return;
+    await api(`/api/admin/news/${target.dataset.deleteNews}`, { method: "DELETE" });
+    await loadAdmin();
+    await refreshCore();
+    showToast("Noticia borrada.");
+    return;
+  }
+
   if (target.dataset.editGw) {
     editGameweek(target.dataset.editGw);
     return;
@@ -2422,7 +2540,7 @@ function bindEvents() {
     state.user = null;
   });
 
-  $$(".tab, .brand").forEach((button) => {
+  $$("[data-view]").forEach((button) => {
     button.addEventListener("click", () => {
       if (button.dataset.view) setView(button.dataset.view);
     });
@@ -2537,6 +2655,8 @@ function bindEvents() {
   els.playerResetBtn.addEventListener("click", resetPlayerForm);
   els.teamForm.addEventListener("submit", saveTeam);
   els.clubForm.addEventListener("submit", saveClub);
+  els.newsForm.addEventListener("submit", saveNews);
+  els.newsResetBtn.addEventListener("click", resetNewsForm);
   els.gameweekForm.addEventListener("submit", saveGameweek);
   els.gwResetBtn.addEventListener("click", resetGameweekForm);
   els.matchForm.addEventListener("submit", saveMatch);

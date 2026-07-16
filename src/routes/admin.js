@@ -3,6 +3,7 @@ import { requireAdmin, requireAuth } from "../middleware/auth.js";
 import { Club } from "../models/Club.js";
 import { Gameweek } from "../models/Gameweek.js";
 import { Lineup } from "../models/Lineup.js";
+import { NewsItem } from "../models/NewsItem.js";
 import { Player } from "../models/Player.js";
 import { getLeagueSettings } from "../models/Settings.js";
 import { User } from "../models/User.js";
@@ -153,6 +154,72 @@ adminRouter.put("/settings", async (req, res) => {
   await settings.save();
 
   res.json({ message: "Configuracion actualizada.", settings });
+});
+
+function newsPayload(req, existingNews = null) {
+  const title = String(req.body.title || "").trim();
+  const body = String(req.body.body || "").trim();
+  const pinned = Boolean(req.body.pinned);
+  const validTypes = ["gameweek_started", "gameweek_finished", "match_scored", "player_created", "team_registered", "system"];
+  const type = validTypes.includes(req.body.type) ? req.body.type : existingNews?.type || "system";
+  const wasPinned = Boolean(existingNews?.pinned);
+
+  return {
+    title,
+    body,
+    pinned,
+    pinnedAt: pinned ? existingNews?.pinnedAt || new Date() : null,
+    type,
+    metadata: {
+      ...(existingNews?.metadata || {}),
+      manual: true,
+      updatedBy: req.user.email
+    },
+    ...(pinned && !wasPinned ? { pinnedAt: new Date() } : {})
+  };
+}
+
+adminRouter.get("/news", async (_req, res) => {
+  const news = await NewsItem.find({})
+    .sort({ pinned: -1, pinnedAt: -1, createdAt: -1 })
+    .limit(100);
+
+  res.json({ news });
+});
+
+adminRouter.post("/news", async (req, res) => {
+  const payload = newsPayload(req);
+  if (!payload.title) {
+    return res.status(400).json({ message: "El titulo de la noticia es obligatorio." });
+  }
+
+  const news = await NewsItem.create(payload);
+  res.status(201).json({ message: "Noticia publicada.", news });
+});
+
+adminRouter.put("/news/:id", async (req, res) => {
+  const existingNews = await NewsItem.findById(req.params.id);
+  if (!existingNews) {
+    return res.status(404).json({ message: "Noticia no encontrada." });
+  }
+
+  const payload = newsPayload(req, existingNews);
+  if (!payload.title) {
+    return res.status(400).json({ message: "El titulo de la noticia es obligatorio." });
+  }
+
+  Object.assign(existingNews, payload);
+  await existingNews.save();
+  res.json({ message: "Noticia actualizada.", news: existingNews });
+});
+
+adminRouter.delete("/news/:id", async (req, res) => {
+  const news = await NewsItem.findByIdAndDelete(req.params.id);
+  if (!news) {
+    return res.status(404).json({ message: "Noticia no encontrada." });
+  }
+
+  res.json({ message: "Noticia eliminada." });
 });
 
 adminRouter.get("/backups", async (_req, res) => {

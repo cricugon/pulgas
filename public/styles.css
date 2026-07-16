@@ -252,7 +252,8 @@ label {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   min-height: 42px;
   border: 1px solid var(--line);
@@ -263,8 +264,16 @@ select {
   background: rgba(3, 10, 24, 0.72);
 }
 
+textarea {
+  min-height: 120px;
+  padding-top: 10px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   border-color: rgba(68, 224, 255, 0.72);
   box-shadow: 0 0 0 3px rgba(68, 224, 255, 0.12);
 }
@@ -398,12 +407,98 @@ select:focus {
   gap: 12px;
 }
 
+.inline-check {
+  display: flex;
+  grid-template-columns: none;
+  gap: 10px;
+  align-items: center;
+}
+
+.inline-check input {
+  width: 18px;
+  min-height: 18px;
+  accent-color: var(--cyan);
+}
+
 .profile-form .primary-button {
   width: 100%;
 }
 
 .news-panel {
   margin-bottom: 14px;
+}
+
+.rules-banner {
+  position: sticky;
+  top: 126px;
+  z-index: 8;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid rgba(68, 224, 255, 0.42);
+  border-radius: 8px;
+  color: var(--text);
+  background:
+    linear-gradient(135deg, rgba(20, 92, 255, 0.28), rgba(68, 224, 255, 0.12)),
+    rgba(3, 10, 24, 0.92);
+  box-shadow: 0 16px 52px rgba(47, 124, 255, 0.18);
+  text-align: left;
+  backdrop-filter: blur(18px);
+}
+
+.rules-banner strong,
+.rules-banner small {
+  display: block;
+}
+
+.rules-banner strong {
+  font-size: 0.96rem;
+}
+
+.rules-banner small {
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.rules-panel {
+  margin-bottom: 16px;
+}
+
+.rules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.rules-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(2, 8, 21, 0.62);
+}
+
+.rules-card.wide {
+  grid-column: 1 / -1;
+}
+
+.rules-card h4 {
+  margin: 0 0 10px;
+  color: var(--cyan);
+  font-size: 0.92rem;
+  text-transform: uppercase;
+}
+
+.rules-card ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .panel {
@@ -637,6 +732,12 @@ select:focus {
   padding: 12px;
 }
 
+.news-item.pinned,
+.news-admin-row.pinned {
+  border-color: rgba(255, 209, 102, 0.42);
+  background: linear-gradient(135deg, rgba(255, 209, 102, 0.12), rgba(2, 8, 21, 0.66));
+}
+
 .news-type {
   display: inline-flex;
   min-width: 78px;
@@ -652,8 +753,22 @@ select:focus {
   text-transform: uppercase;
 }
 
+.news-item.pinned .news-type {
+  border-color: rgba(255, 209, 102, 0.52);
+  color: var(--warning);
+  background: rgba(255, 209, 102, 0.1);
+}
+
 .news-item strong {
   display: block;
+}
+
+.news-pin {
+  display: inline-flex;
+  margin-left: 6px;
+  color: var(--warning);
+  font-size: 0.72rem;
+  text-transform: uppercase;
 }
 
 .news-item small {
@@ -891,6 +1006,14 @@ button.leader-row:hover {
 
 .lineup-picker-modal {
   width: min(680px, 100%);
+}
+
+.lineup-picker-modal .panel-header > div {
+  min-width: 0;
+}
+
+.lineup-picker-modal .panel-header .hint {
+  overflow-wrap: anywhere;
 }
 
 .lineup-picker-toolbar {
@@ -1504,6 +1627,15 @@ button.leader-row:hover {
 }
 
 @media (max-width: 640px) {
+  .rules-banner {
+    top: 118px;
+    align-items: flex-start;
+  }
+
+  .rules-banner .pill {
+    flex: 0 0 auto;
+  }
+
   #lineupPickerModal {
     place-items: end center;
     padding: 8px;
@@ -1511,9 +1643,27 @@ button.leader-row:hover {
 
   .lineup-picker-modal {
     width: 100%;
+    max-width: calc(100vw - 16px);
     max-height: calc(100vh - 16px);
+    overflow-x: hidden;
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-left: max(12px, env(safe-area-inset-left));
     border-bottom-right-radius: 0;
     border-bottom-left-radius: 0;
+  }
+
+  .lineup-picker-modal .panel-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 42px;
+    align-items: start;
+    background: var(--panel-solid);
+  }
+
+  .lineup-picker-modal .icon-button {
+    justify-self: end;
   }
 
   .lineup-picker-toolbar {
@@ -1531,6 +1681,15 @@ button.leader-row:hover {
 }
 
 @media (max-width: 420px) {
+  .rules-banner {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .rules-banner .pill {
+    justify-self: start;
+  }
+
   .market-subnav.segmented {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

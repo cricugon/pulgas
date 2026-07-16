@@ -78,6 +78,14 @@
           <section id="toast" class="toast hidden" role="status"></section>
 
           <section id="dashboardView" class="view active">
+            <button class="rules-banner" data-view="rules" type="button">
+              <span>
+                <strong>Consulta las reglas y sistema de puntuacion</strong>
+                <small>Normas de alineacion, mercado y calculo de puntos</small>
+              </span>
+              <span class="pill">Ver reglas</span>
+            </button>
+
             <section class="panel news-panel">
               <div class="panel-header">
                 <div>
@@ -121,6 +129,94 @@
                 <div id="squadList" class="player-list compact"></div>
               </section>
             </div>
+          </section>
+
+          <section id="rulesView" class="view">
+            <section class="panel rules-panel">
+              <div class="panel-header">
+                <div>
+                  <h3>Reglas y puntuacion</h3>
+                  <p>Funcionamiento oficial de Las Pulgas Fantasy.</p>
+                </div>
+                <button class="ghost-button" data-view="dashboard" type="button">Volver</button>
+              </div>
+
+              <div class="rules-grid">
+                <article class="rules-card">
+                  <h4>Alineacion</h4>
+                  <ul>
+                    <li>La jornada se juega con futbol 7: siete jugadores contando siempre un portero.</li>
+                    <li>Las formaciones deben tener un portero, minimo dos defensas, minimo un medio y minimo un delantero.</li>
+                    <li>Solo se pueden alinear jugadores de clubes que tengan partido en esa jornada.</li>
+                    <li>La alineacion debe estar guardada una hora antes del primer partido de la jornada.</li>
+                    <li>Cuando la jornada empieza, la alineacion queda bloqueada y pasa a ser oficial.</li>
+                    <li>Las alineaciones de otros equipos no se muestran hasta que la jornada haya empezado.</li>
+                  </ul>
+                </article>
+
+                <article class="rules-card">
+                  <h4>Presupuesto y jugadores</h4>
+                  <ul>
+                    <li>El valor total de los siete jugadores no puede superar el presupuesto del equipo.</li>
+                    <li>El mercado es de consulta: los jugadores se eligen directamente desde la pantalla de alineacion.</li>
+                    <li>Un mismo jugador no puede ocupar dos puestos en la misma alineacion.</li>
+                    <li>Los jugadores lesionados o suspendidos no se pueden seleccionar.</li>
+                  </ul>
+                </article>
+
+                <article class="rules-card">
+                  <h4>Puntos base</h4>
+                  <ul>
+                    <li>Portero: 5 puntos si participa.</li>
+                    <li>Defensa: 4 puntos si participa.</li>
+                    <li>Centrocampista: 2 puntos si participa.</li>
+                    <li>Delantero: 2 puntos si participa.</li>
+                    <li>Si un jugador no participa, suma 0 puntos.</li>
+                  </ul>
+                </article>
+
+                <article class="rules-card">
+                  <h4>Goles y asistencias</h4>
+                  <ul>
+                    <li>Gol normal de delantero o medio: 3 puntos.</li>
+                    <li>Gol normal de defensa o portero: 4 puntos.</li>
+                    <li>Gol de penalti o dado: 2 puntos, independientemente de la posicion.</li>
+                    <li>Asistencia de gol: 1 punto.</li>
+                  </ul>
+                </article>
+
+                <article class="rules-card">
+                  <h4>Porteria y defensa</h4>
+                  <ul>
+                    <li>Portero imbatido: 5 puntos extra.</li>
+                    <li>Defensa con porteria a cero: 3 puntos extra.</li>
+                    <li>Porteros y defensas restan 1 punto por cada dos goles recibidos.</li>
+                    <li>Si los goles recibidos son impares, se redondea hacia abajo: con 5 goles se restan 2 puntos.</li>
+                    <li>Penalti parado por el portero: 3 puntos.</li>
+                  </ul>
+                </article>
+
+                <article class="rules-card">
+                  <h4>Picas</h4>
+                  <ul>
+                    <li>Cada jugador que participa recibe de 0 a 3 picas.</li>
+                    <li>Cada pica suma 2 puntos.</li>
+                    <li>Maximo por picas: 6 puntos.</li>
+                  </ul>
+                </article>
+
+                <article class="rules-card wide">
+                  <h4>Clasificaciones y valores</h4>
+                  <ul>
+                    <li>La clasificacion de jornada suma los puntos de los jugadores alineados en esa jornada.</li>
+                    <li>La clasificacion total solo acumula jornadas finalizadas.</li>
+                    <li>Los usos de jugadores solo cuentan cuando una jornada empieza y las alineaciones quedan oficiales.</li>
+                    <li>Al finalizar una jornada se recalcula el valor de mercado con puntos, media por posicion, usos oficiales y dificultad del proximo rival.</li>
+                    <li>El valor de un jugador nunca baja de 5M ni sube de 30M, y el cambio maximo por jornada es del 30%.</li>
+                  </ul>
+                </article>
+              </div>
+            </section>
           </section>
 
           <section id="marketView" class="view">
@@ -264,6 +360,7 @@
               <button class="admin-tab" data-admin-section="players" type="button">Jugadores</button>
               <button class="admin-tab" data-admin-section="teams" type="button">Equipos</button>
               <button class="admin-tab" data-admin-section="clubs" type="button">Clubes</button>
+              <button class="admin-tab" data-admin-section="news" type="button">Noticias</button>
               <button class="admin-tab" data-admin-section="backups" type="button">Backups</button>
             </nav>
             <section class="admin-grid">
@@ -352,6 +449,28 @@
                   <button class="ghost-button" data-create-backup type="button">Crear backup</button>
                 </div>
                 <div id="adminBackups" class="admin-list"></div>
+              </article>
+
+              <article class="panel admin-section-panel" data-admin-section-panel="news">
+                <div class="panel-header">
+                  <div>
+                    <h3>Noticias</h3>
+                    <p>Publica avisos manuales y fija los importantes arriba del tablon.</p>
+                  </div>
+                  <button class="ghost-button" data-open-modal="news" type="button">Nueva noticia</button>
+                </div>
+                <form id="newsForm" class="admin-form modal-form hidden">
+                  <input type="hidden" id="newsIdInput" />
+                  <input id="newsTitleInput" required maxlength="120" placeholder="Titulo de la noticia" />
+                  <textarea id="newsBodyInput" rows="5" maxlength="800" placeholder="Texto de la noticia"></textarea>
+                  <label class="inline-check">
+                    <input id="newsPinnedInput" type="checkbox" />
+                    Fijar arriba del tablon
+                  </label>
+                  <button id="newsSubmitBtn" class="primary-button" type="submit">Publicar noticia</button>
+                  <button id="newsResetBtn" class="ghost-button" type="button">Limpiar</button>
+                </form>
+                <div id="adminNews" class="admin-list"></div>
               </article>
 
               <article class="panel wide admin-section-panel" data-admin-section-panel="gameweeks">

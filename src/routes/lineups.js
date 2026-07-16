@@ -17,6 +17,19 @@ async function findLineup(userId, gameweekId) {
     .populate("gameweek");
 }
 
+function objectId(value) {
+  return value?._id?.toString?.() || value?.toString?.() || String(value || "");
+}
+
+function gameweekClubIds(gameweek) {
+  const clubIds = new Set();
+  for (const match of gameweek?.matches || []) {
+    if (match.homeClub) clubIds.add(objectId(match.homeClub));
+    if (match.awayClub) clubIds.add(objectId(match.awayClub));
+  }
+  return clubIds;
+}
+
 async function serializeLineup(lineup) {
   if (!lineup) return null;
 
@@ -68,6 +81,16 @@ lineupRouter.post("/:gameweekId", async (req, res) => {
     const players = await Player.find({ _id: { $in: playerIds } });
     if (players.length !== playerIds.length) {
       return res.status(400).json({ message: "Alguno de los jugadores seleccionados no existe." });
+    }
+
+    const eligibleClubIds = gameweekClubIds(gameweek);
+    if (!eligibleClubIds.size) {
+      return res.status(400).json({ message: "La jornada no tiene partidos configurados para hacer alineacion." });
+    }
+
+    const ineligible = players.find((player) => !eligibleClubIds.has(objectId(player.club)));
+    if (ineligible) {
+      return res.status(400).json({ message: `${ineligible.name} no juega esta jornada.` });
     }
 
     const playerById = new Map(players.map((player) => [player._id.toString(), player]));

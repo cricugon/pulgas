@@ -226,6 +226,28 @@ function lineupValueForIds(playerIds = []) {
     .reduce((sum, player) => sum + Number(player.marketValue || 0), 0);
 }
 
+function lineupClubIds(gameweek = state.activeGameweek) {
+  const clubIds = new Set();
+  for (const match of gameweek?.matches || []) {
+    if (match.homeClub) clubIds.add(objectId(match.homeClub));
+    if (match.awayClub) clubIds.add(objectId(match.awayClub));
+  }
+  return clubIds;
+}
+
+function playerCanPlayLineupGameweek(player, gameweek = state.activeGameweek) {
+  const clubIds = lineupClubIds(gameweek);
+  return clubIds.has(objectId(player?.club));
+}
+
+function eligibleLineupPlayers(position = "") {
+  const clubIds = lineupClubIds();
+  return (state.players || []).filter((player) => {
+    const matchesPosition = !position || player.position === position;
+    return matchesPosition && clubIds.has(objectId(player.club));
+  });
+}
+
 function formatEuro(value = 0) {
   return new Intl.NumberFormat("es-ES", {
     style: "currency",
@@ -938,20 +960,25 @@ async function loadLineup() {
 
 function renderLineup() {
   const gw = state.activeGameweek;
-  const players = state.players || [];
 
   if (!gw) {
     els.lineupPlayers.innerHTML = `<p class="hint">No hay jornada disponible.</p>`;
     return;
   }
 
-  const savedPlayers = (state.currentLineup?.players || []).map((player) => player._id);
+  const eligiblePlayers = eligibleLineupPlayers();
+  const eligiblePlayerIds = new Set(eligiblePlayers.map((player) => player._id));
+  const savedPlayers = (state.currentLineup?.players || [])
+    .map((player) => player._id)
+    .filter((playerId) => eligiblePlayerIds.has(playerId));
   if (!state.lineupDraft) {
     state.lineupDraft = {
       formation: state.currentLineup?.formation || "2-2-2",
       playerIds: savedPlayers
     };
   }
+
+  state.lineupDraft.playerIds = (state.lineupDraft.playerIds || []).filter((playerId) => eligiblePlayerIds.has(playerId));
 
   if (!FORMATIONS.includes(state.lineupDraft.formation)) {
     state.lineupDraft.formation = "2-2-2";
@@ -960,13 +987,13 @@ function renderLineup() {
   renderFormationSelect();
   els.lineupHelp.textContent =
     gw.status === "draft"
-      ? "Elige formacion y asigna jugadores del catalogo completo sin superar tu presupuesto."
+      ? "Elige jugadores de los equipos que juegan esta jornada sin superar tu presupuesto."
       : `La jornada esta ${gw.status}; la alineacion ya no se puede editar.`;
 
   els.lineupForm.querySelector("button[type='submit']").disabled = gw.status !== "draft";
 
-  if (!players.length) {
-    els.lineupPlayers.innerHTML = `<p class="hint">No hay jugadores disponibles para preparar una alineacion.</p>`;
+  if (!eligiblePlayers.length) {
+    els.lineupPlayers.innerHTML = `<p class="hint">No hay jugadores alineables: configura primero los partidos de esta jornada.</p>`;
     els.lineupCount.textContent = "0 puestos";
     updateLineupCapFromSelection();
     return;
@@ -1147,8 +1174,7 @@ function renderLineupPicker() {
   els.lineupPickerBudget.textContent = `Presupuesto restante actual: ${formatEuro(remaining)} / ${formatEuro(context.budgetLimit)}`;
   els.lineupPickerClear.disabled = !context.selectedPlayerId;
 
-  const players = (state.players || [])
-    .filter((player) => player.position === context.position)
+  const players = eligibleLineupPlayers(context.position)
     .filter((player) => {
       const club = player.club?.shortName || player.club?.name || "";
       return !query || `${player.name} ${club}`.toLowerCase().includes(query);
@@ -1182,7 +1208,7 @@ function renderLineupPicker() {
           `;
         })
         .join("")
-    : `<p class="hint">No hay jugadores para ese puesto con esa busqueda.</p>`;
+    : `<p class="hint">No hay jugadores de ese puesto en los equipos que juegan esta jornada.</p>`;
 }
 
 function updateLineupSlotSelection(slotKey, playerId) {
@@ -1216,6 +1242,14 @@ async function saveLineup(event) {
     const playerIds = getSelectedLineupPlayerIds();
     if (playerIds.length !== slots.length) {
       showToast("Completa todos los puestos de la formacion.", "error");
+      return;
+    }
+
+    const outsideGameweek = playerIds
+      .map((playerId) => playerById(playerId))
+      .find((player) => !playerCanPlayLineupGameweek(player, gw));
+    if (outsideGameweek) {
+      showToast(`${outsideGameweek.name} no juega esta jornada.`, "error");
       return;
     }
 

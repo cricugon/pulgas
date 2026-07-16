@@ -432,6 +432,22 @@
               <div id="lineupDetailBody"></div>
             </div>
           </div>
+          <div id="lineupPickerModal" class="admin-modal hidden" role="dialog" aria-modal="true" aria-labelledby="lineupPickerTitle">
+            <div class="admin-modal-card lineup-picker-modal">
+              <div class="panel-header">
+                <div>
+                  <h3 id="lineupPickerTitle">Elegir jugador</h3>
+                  <p id="lineupPickerBudget" class="hint"></p>
+                </div>
+                <button class="icon-button" data-close-lineup-picker type="button" aria-label="Cerrar">x</button>
+              </div>
+              <div class="lineup-picker-toolbar">
+                <input id="lineupPickerSearch" type="search" placeholder="Buscar jugador o club" />
+                <button id="lineupPickerClear" class="ghost-button" type="button">Quitar jugador</button>
+              </div>
+              <div id="lineupPickerList" class="lineup-picker-list"></div>
+            </div>
+          </div>
           <div id="playerDetailModal" class="admin-modal hidden" role="dialog" aria-modal="true" aria-labelledby="playerDetailTitle">
             <div class="admin-modal-card player-detail-modal">
               <div class="panel-header">

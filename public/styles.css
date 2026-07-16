@@ -571,14 +571,46 @@ select:focus {
   text-align: center;
 }
 
-.lineup-slot select {
-  min-height: 40px;
-  padding: 0 8px;
-  border-color: rgba(255, 255, 255, 0.28);
+.lineup-picker-trigger {
+  display: grid;
+  gap: 3px;
+  min-height: 50px;
+  width: 100%;
+  padding: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  color: var(--text);
   background: rgba(2, 8, 21, 0.86);
-  font-size: 0.78rem;
-  font-weight: 800;
+  text-align: left;
+}
+
+.lineup-picker-trigger strong,
+.lineup-picker-trigger small {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lineup-picker-trigger strong {
+  font-size: 0.78rem;
+}
+
+.lineup-picker-trigger small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.lineup-picker-trigger.selected {
+  border-color: rgba(68, 224, 255, 0.44);
+  background: rgba(7, 28, 66, 0.86);
+}
+
+.lineup-picker-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.76;
 }
 
 .over-budget {
@@ -855,6 +887,68 @@ button.leader-row:hover {
 
 .lineup-detail-modal {
   width: min(620px, 100%);
+}
+
+.lineup-picker-modal {
+  width: min(680px, 100%);
+}
+
+.lineup-picker-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.lineup-picker-list {
+  display: grid;
+  gap: 8px;
+}
+
+.lineup-picker-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: rgba(2, 8, 21, 0.62);
+  text-align: left;
+}
+
+.lineup-picker-option:hover {
+  border-color: rgba(68, 224, 255, 0.42);
+  background: rgba(7, 28, 66, 0.76);
+}
+
+.lineup-picker-option.selected {
+  border-color: rgba(55, 227, 143, 0.48);
+  background: rgba(55, 227, 143, 0.1);
+}
+
+.lineup-picker-option.blocked {
+  opacity: 0.56;
+}
+
+.lineup-picker-option:disabled {
+  cursor: not-allowed;
+}
+
+.lineup-picker-main {
+  min-width: 0;
+}
+
+.lineup-picker-main strong,
+.lineup-picker-main small {
+  display: block;
+}
+
+.lineup-picker-main small {
+  margin-top: 3px;
+  color: var(--muted);
 }
 
 .player-detail-modal {
@@ -1409,6 +1503,33 @@ button.leader-row:hover {
   color: var(--danger);
 }
 
+@media (max-width: 640px) {
+  #lineupPickerModal {
+    place-items: end center;
+    padding: 8px;
+  }
+
+  .lineup-picker-modal {
+    width: 100%;
+    max-height: calc(100vh - 16px);
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+
+  .lineup-picker-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .lineup-picker-option {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .lineup-picker-option .pill {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
+}
+
 @media (max-width: 420px) {
   .market-subnav.segmented {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1447,7 +1568,7 @@ button.leader-row:hover {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .lineup-slot select {
+  .lineup-picker-trigger strong {
     font-size: 0.72rem;
   }
 

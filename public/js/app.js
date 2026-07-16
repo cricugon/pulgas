@@ -12,6 +12,10 @@ const state = {
   activeGameweek: null,
   currentLineup: null,
   lineupDraft: null,
+  lineupPicker: {
+    slotKey: "",
+    position: ""
+  },
   leaderboard: [],
   leaderboardMode: "total",
   activeGameweekLeaderboard: null,
@@ -69,6 +73,12 @@ const els = {
   lineupCap: $("#lineupCap"),
   lineupCount: $("#lineupCount"),
   lineupHelp: $("#lineupHelp"),
+  lineupPickerModal: $("#lineupPickerModal"),
+  lineupPickerTitle: $("#lineupPickerTitle"),
+  lineupPickerBudget: $("#lineupPickerBudget"),
+  lineupPickerSearch: $("#lineupPickerSearch"),
+  lineupPickerClear: $("#lineupPickerClear"),
+  lineupPickerList: $("#lineupPickerList"),
   leaderboardList: $("#leaderboardList"),
   gameweekLeaderboardList: $("#gameweekLeaderboardList"),
   historyGameweeksList: $("#historyGameweeksList"),
@@ -1024,33 +1034,21 @@ function alignDraftToSlots(slots) {
 }
 
 function renderLineupSlot(slot, selectedPlayerId, disabled) {
-  const selectedInOtherSlots = new Set(
-    (state.lineupDraft.playerIds || []).filter((playerId) => playerId && playerId !== selectedPlayerId)
-  );
-  const baseValue = lineupValueForIds((state.lineupDraft.playerIds || []).filter((playerId) => playerId && playerId !== selectedPlayerId));
-  const budgetLimit = lineupBudgetLimit();
+  const player = playerById(selectedPlayerId);
   const points = selectedPlayerId ? lineupPointsForPlayer(selectedPlayerId) : 0;
   const pointClass = points > 0 ? "positive" : points < 0 ? "negative" : "";
-  const options = (state.players || [])
-    .filter((player) => player.position === slot.position)
-    .sort((a, b) => Number(b.totalPoints || 0) - Number(a.totalPoints || 0) || Number(a.marketValue || 0) - Number(b.marketValue || 0))
-    .map((player) => {
-      const isSelected = player._id === selectedPlayerId ? "selected" : "";
-      const overBudget = !isSelected && baseValue + Number(player.marketValue || 0) > budgetLimit;
-      const isDisabled = selectedInOtherSlots.has(player._id) || player.status !== "available" || overBudget ? "disabled" : "";
-      const club = player.club?.shortName || player.club?.name || "SIN";
-      return `<option value="${player._id}" ${isSelected} ${isDisabled}>${escapeHtml(player.name)} (${escapeHtml(club)}) - ${formatEuro(player.marketValue)}</option>`;
-    })
-    .join("");
+  const club = player?.club?.shortName || player?.club?.name || "";
+  const disabledAttr = disabled ? "disabled" : "";
 
   return `
     <label class="lineup-slot" data-position="${slot.position}">
       <span class="slot-token">${slot.position}</span>
       <span class="slot-points ${pointClass}">${selectedPlayerId ? formatPoints(points) : "0 pts"}</span>
-      <select name="slotPlayerIds" data-slot="${slot.key}" data-position="${slot.position}" ${disabled}>
-        <option value="">${POSITION_LABELS[slot.position]}</option>
-        ${options}
-      </select>
+      <input type="hidden" name="slotPlayerIds" data-slot="${slot.key}" data-position="${slot.position}" value="${selectedPlayerId || ""}" />
+      <button class="lineup-picker-trigger ${player ? "selected" : ""}" type="button" data-open-lineup-picker="${slot.key}" data-position="${slot.position}" ${disabledAttr}>
+        <strong>${player ? escapeHtml(player.name) : POSITION_LABELS[slot.position]}</strong>
+        <small>${player ? `${escapeHtml(club)} · ${formatEuro(player.marketValue)}` : "Toca para elegir"}</small>
+      </button>
     </label>
   `;
 }
@@ -1070,7 +1068,7 @@ function updateLineupCapFromSelection() {
 
 function getSelectedLineupPlayerIds() {
   const valuesBySlot = new Map(
-    $$("select[name='slotPlayerIds']").map((input) => [input.dataset.slot, input.value])
+    $$("input[name='slotPlayerIds']").map((input) => [input.dataset.slot, input.value])
   );
   return formationSlots(state.lineupDraft?.formation || "2-2-2")
     .map((slot) => valuesBySlot.get(slot.key))
@@ -1086,11 +1084,126 @@ function handleFormationChange() {
   renderLineup();
 }
 
-function handleLineupSlotChange(event) {
-  if (!event.target.matches("select[name='slotPlayerIds']")) return;
-  updateLineupCapFromSelection();
+function selectedPlayerIdForSlot(slotKey) {
+  return $(`input[name='slotPlayerIds'][data-slot="${slotKey}"]`)?.value || "";
+}
+
+function lineupPickerContext() {
+  const slotKey = state.lineupPicker.slotKey;
+  const selectedPlayerId = selectedPlayerIdForSlot(slotKey);
+  const selectedIds = getSelectedLineupPlayerIds();
+  const selectedInOtherSlots = new Set(selectedIds.filter((playerId) => playerId && playerId !== selectedPlayerId));
+  const baseValue = lineupValueForIds(selectedIds.filter((playerId) => playerId && playerId !== selectedPlayerId));
+  return {
+    slotKey,
+    position: state.lineupPicker.position,
+    selectedPlayerId,
+    selectedInOtherSlots,
+    baseValue,
+    budgetLimit: lineupBudgetLimit()
+  };
+}
+
+function pickerPlayerState(player, context) {
+  const value = Number(player.marketValue || 0);
+  const isSelected = player._id === context.selectedPlayerId;
+  const isUsed = context.selectedInOtherSlots.has(player._id);
+  const overBudget = !isSelected && context.baseValue + value > context.budgetLimit;
+  const unavailable = player.status !== "available";
+  const disabled = !isSelected && (isUsed || unavailable || overBudget);
+  const remaining = context.budgetLimit - context.baseValue - value;
+  let reason = `${formatEuro(Math.max(remaining, 0))} restante`;
+
+  if (isSelected) reason = "Seleccionado";
+  else if (isUsed) reason = "Ya usado";
+  else if (unavailable) reason = player.status;
+  else if (overBudget) reason = "Supera presupuesto";
+
+  return { disabled, isSelected, reason, remaining };
+}
+
+function openLineupPicker(slotKey, position) {
+  if (state.activeGameweek?.status !== "draft") return;
+
+  state.lineupPicker = { slotKey, position };
+  els.lineupPickerSearch.value = "";
+  renderLineupPicker();
+  els.lineupPickerModal.classList.remove("hidden");
+  els.lineupPickerSearch.focus();
+}
+
+function closeLineupPicker() {
+  els.lineupPickerModal.classList.add("hidden");
+}
+
+function renderLineupPicker() {
+  const context = lineupPickerContext();
+  if (!context.slotKey) return;
+
+  const query = els.lineupPickerSearch.value.trim().toLowerCase();
+  const selectedValue = lineupValueForIds(getSelectedLineupPlayerIds());
+  const remaining = context.budgetLimit - selectedValue;
+  els.lineupPickerTitle.textContent = `Elegir ${POSITION_LABELS[context.position]}`;
+  els.lineupPickerBudget.textContent = `Presupuesto restante actual: ${formatEuro(remaining)} / ${formatEuro(context.budgetLimit)}`;
+  els.lineupPickerClear.disabled = !context.selectedPlayerId;
+
+  const players = (state.players || [])
+    .filter((player) => player.position === context.position)
+    .filter((player) => {
+      const club = player.club?.shortName || player.club?.name || "";
+      return !query || `${player.name} ${club}`.toLowerCase().includes(query);
+    })
+    .sort((a, b) => {
+      const stateA = pickerPlayerState(a, context);
+      const stateB = pickerPlayerState(b, context);
+      if (stateA.isSelected !== stateB.isSelected) return stateA.isSelected ? -1 : 1;
+      if (stateA.disabled !== stateB.disabled) return stateA.disabled ? 1 : -1;
+      return Number(b.totalPoints || 0) - Number(a.totalPoints || 0) || Number(a.marketValue || 0) - Number(b.marketValue || 0);
+    });
+
+  els.lineupPickerList.innerHTML = players.length
+    ? players
+        .map((player) => {
+          const club = player.club?.shortName || player.club?.name || "SIN";
+          const itemState = pickerPlayerState(player, context);
+          const disabled = itemState.disabled ? "disabled" : "";
+          const stateClass = itemState.isSelected ? "selected" : itemState.disabled ? "blocked" : "";
+          const reasonClass = itemState.disabled ? "negative" : itemState.isSelected ? "positive" : "";
+
+          return `
+            <button class="lineup-picker-option ${stateClass}" type="button" data-pick-lineup-player="${player._id}" ${disabled}>
+              <span class="avatar">${initials(player.name)}</span>
+              <span class="lineup-picker-main">
+                <strong>${escapeHtml(player.name)}</strong>
+                <small>${escapeHtml(club)} · ${escapeHtml(player.position)} · ${formatEuro(player.marketValue)} · ${player.totalPoints || 0} pts</small>
+              </span>
+              <span class="pill ${reasonClass}">${escapeHtml(itemState.reason)}</span>
+            </button>
+          `;
+        })
+        .join("")
+    : `<p class="hint">No hay jugadores para ese puesto con esa busqueda.</p>`;
+}
+
+function updateLineupSlotSelection(slotKey, playerId) {
+  const slots = formationSlots(state.lineupDraft.formation);
+  const valuesBySlot = new Map(
+    $$("input[name='slotPlayerIds']").map((input) => [input.dataset.slot, input.value])
+  );
+  valuesBySlot.set(slotKey, playerId || "");
+  state.lineupDraft.playerIds = slots.map((slot) => valuesBySlot.get(slot.key)).filter(Boolean);
   renderPitch();
   updateLineupCapFromSelection();
+}
+
+function selectLineupPickerPlayer(playerId) {
+  updateLineupSlotSelection(state.lineupPicker.slotKey, playerId);
+  closeLineupPicker();
+}
+
+function clearLineupPickerSelection() {
+  updateLineupSlotSelection(state.lineupPicker.slotKey, "");
+  closeLineupPicker();
 }
 
 async function saveLineup(event) {
@@ -2317,8 +2430,24 @@ function bindEvents() {
   });
 
   els.formationSelect.addEventListener("change", handleFormationChange);
-  els.lineupPlayers.addEventListener("change", handleLineupSlotChange);
+  els.lineupPlayers.addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-open-lineup-picker]");
+    if (trigger) {
+      openLineupPicker(trigger.dataset.openLineupPicker, trigger.dataset.position);
+    }
+  });
   els.lineupForm.addEventListener("submit", saveLineup);
+  els.lineupPickerSearch.addEventListener("input", renderLineupPicker);
+  els.lineupPickerClear.addEventListener("click", clearLineupPickerSelection);
+  els.lineupPickerList.addEventListener("click", (event) => {
+    const option = event.target.closest("[data-pick-lineup-player]");
+    if (option && !option.disabled) selectLineupPickerPlayer(option.dataset.pickLineupPlayer);
+  });
+  els.lineupPickerModal.addEventListener("click", (event) => {
+    if (event.target === els.lineupPickerModal || event.target.closest("[data-close-lineup-picker]")) {
+      closeLineupPicker();
+    }
+  });
   els.profileTeamForm.addEventListener("submit", saveProfileTeam);
   els.profilePasswordForm.addEventListener("submit", saveProfilePassword);
 

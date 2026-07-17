@@ -248,11 +248,12 @@ function renderMatchOptions() {
 function playerOptions(clubId, position, selectedId = "", emptyLabel = "Seleccionar jugador") {
   const players = state.predictionContext?.players || state.players;
   return `<option value="">${escapeHtml(emptyLabel)}</option>${players
-    .filter((player) => objectId(player.club) === clubId && player.position === position)
+    .filter((player) => objectId(player.club) === clubId && (!position || player.position === position))
     .map((player) => {
       const status = player.mundoStatus?.status || "available";
       const suffix = status === "available" ? "" : ` · ${STATUS_LABELS[status]}`;
-      return `<option value="${player._id}" ${player._id === selectedId ? "selected" : ""}>${escapeHtml(player.name + suffix)}</option>`;
+      const positionLabel = position ? "" : ` · ${player.position}`;
+      return `<option value="${player._id}" ${player._id === selectedId ? "selected" : ""}>${escapeHtml(player.name + positionLabel + suffix)}</option>`;
     }).join("")}`;
 }
 
@@ -273,7 +274,7 @@ function predictionTeamMarkup(team) {
               <span class="prediction-slot-position">${pick.position}</span>
               <select data-slot-starter aria-label="Titular ${POSITION_LABELS[pick.position]}">${playerOptions(clubId, pick.position, objectId(pick.starter))}</select>
               <input data-slot-probability type="number" min="0" max="100" step="1" value="${Number(pick.probability ?? 80)}" aria-label="Probabilidad" />
-              <select class="challenger-field" data-slot-challenger aria-label="Jugador que disputa el puesto">${playerOptions(clubId, pick.position, objectId(pick.challenger), "Sin suplente en disputa")}</select>
+              <select class="challenger-field" data-slot-challenger aria-label="Jugador que disputa el puesto">${playerOptions(clubId, null, objectId(pick.challenger), "Sin suplente en disputa")}</select>
               <span class="prediction-slot-status">${status ? `${STATUS_LABELS[status.status] || "Disponible"}${status.note ? ` · ${escapeHtml(status.note)}` : ""}` : "Selecciona un titular"}</span>
             </div>
           `;

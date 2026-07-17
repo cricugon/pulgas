@@ -307,8 +307,8 @@ async function validatePredictionPayload(payload, gameweek, match) {
       }
       if (pick.challenger) {
         const challenger = playerById.get(pick.challenger);
-        if (starterIds.has(pick.challenger) || !sameId(challenger.club, team.club) || challenger.position !== pick.position) {
-          const error = new Error("El suplente debe ser otro jugador del mismo club y posicion.");
+        if (starterIds.has(pick.challenger) || !sameId(challenger.club, team.club)) {
+          const error = new Error("El suplente debe ser otro jugador del mismo club.");
           error.status = 400;
           throw error;
         }

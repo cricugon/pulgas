@@ -134,7 +134,7 @@ function matchCard(gameweek, match) {
 
 function scheduleMarkup(gameweeks = [], compact = false) {
   if (!gameweeks.length) return emptyState("Sin jornadas programadas", "Cuando se creen partidos en la liga apareceran aqui automaticamente.");
-  return gameweeks.slice(0, compact ? 2 : gameweeks.length).map((gameweek) => `
+  return gameweeks.slice(0, compact ? 1 : gameweeks.length).map((gameweek) => `
     <section class="gameweek-block">
       <div class="gameweek-title">
         <h${compact ? "3" : "2"}>${escapeHtml(gameweek.name)}</h${compact ? "3" : "2"}>
@@ -171,13 +171,13 @@ async function renderHome() {
         ` : emptyState("La redaccion esta preparando la portada", "Las primeras noticias apareceran aqui al publicarse.")}
       </section>
       <aside class="home-aside">
-        <section class="events-panel">
-          <div class="section-heading"><h2>Ultimos eventos</h2></div>
-          ${eventRows(data.events || [], 12)}
-        </section>
         <section class="schedule-panel">
           <div class="section-heading"><h2>Proximos partidos</h2><a class="section-link" href="/mundolaspulgas/partidos">Ver agenda</a></div>
           ${scheduleMarkup(data.gameweeks || [], true)}
+        </section>
+        <section class="events-panel">
+          <div class="section-heading"><h2>Ultimos eventos</h2></div>
+          ${eventRows(data.events || [], 12)}
         </section>
       </aside>
     </div>

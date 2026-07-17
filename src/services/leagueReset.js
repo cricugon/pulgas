@@ -3,6 +3,9 @@ import { Club } from "../models/Club.js";
 import { Gameweek } from "../models/Gameweek.js";
 import { Lineup } from "../models/Lineup.js";
 import { NewsItem } from "../models/NewsItem.js";
+import { MundoEvent } from "../models/MundoEvent.js";
+import { MundoPlayerStatus } from "../models/MundoPlayerStatus.js";
+import { MundoPrediction } from "../models/MundoPrediction.js";
 import { Player } from "../models/Player.js";
 import { getLeagueSettings } from "../models/Settings.js";
 import { User } from "../models/User.js";
@@ -229,7 +232,10 @@ export async function resetLeague({
     Gameweek.deleteMany({}),
     Player.deleteMany({}),
     Club.deleteMany({}),
-    NewsItem.deleteMany({})
+    NewsItem.deleteMany({}),
+    MundoPlayerStatus.deleteMany({}),
+    MundoPrediction.deleteMany({}),
+    MundoEvent.deleteMany({ type: { $in: ["player_status", "prediction"] } })
   ]);
 
   await resetUsers(budget, preserveUsers, includeDemoAccounts);

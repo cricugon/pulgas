@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#050810" />
+    <meta name="description" content="Noticias, estados y alineaciones probables de Las Pulgas League." />
+    <title>Mundo Las Pulgas</title>
+    <link rel="icon" href="/assets/las-pulgas-fantasy-logo.png" />
+    <link rel="stylesheet" href="/mundolaspulgas/styles.css" />
+  </head>
+  <body>
+    <header class="world-header">
+      <div class="header-inner">
+        <a class="world-brand" href="/mundolaspulgas" aria-label="Mundo Las Pulgas, portada">
+          <img src="/assets/las-pulgas-fantasy-logo.png" alt="" />
+          <span>
+            <strong>Mundo Las Pulgas</strong>
+            <small>Actualidad de Las Pulgas League</small>
+          </span>
+        </a>
+        <button id="menuButton" class="menu-button" type="button" aria-label="Abrir menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+        <nav id="worldNav" class="world-nav" aria-label="Navegacion principal">
+          <a data-nav="home" href="/mundolaspulgas">Portada</a>
+          <a data-nav="archive" href="/mundolaspulgas/noticias">Noticias</a>
+          <a data-nav="matches" href="/mundolaspulgas/partidos">Partidos</a>
+          <a data-nav="clubs" href="/mundolaspulgas/clubes">Clubes</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="worldApp" class="world-main" tabindex="-1">
+      <div class="page-loader" role="status">
+        <span class="loader-ring"></span>
+        <p>Cargando Mundo Las Pulgas...</p>
+      </div>
+    </main>
+
+    <footer class="world-footer">
+      <img src="/assets/las-pulgas-fantasy-logo.png" alt="" />
+      <div>
+        <strong>Mundo Las Pulgas</strong>
+        <small>Noticias y predicciones de Las Pulgas League</small>
+      </div>
+    </footer>
+
+    <div id="worldToast" class="world-toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/mundolaspulgas/app.js"></script>
+  </body>
+</html>

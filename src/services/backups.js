@@ -3,11 +3,15 @@ import { Gameweek } from "../models/Gameweek.js";
 import { LeagueBackup } from "../models/LeagueBackup.js";
 import { Lineup } from "../models/Lineup.js";
 import { NewsItem } from "../models/NewsItem.js";
+import { MundoArticle } from "../models/MundoArticle.js";
+import { MundoEvent } from "../models/MundoEvent.js";
+import { MundoPlayerStatus } from "../models/MundoPlayerStatus.js";
+import { MundoPrediction } from "../models/MundoPrediction.js";
 import { Player } from "../models/Player.js";
 import { Settings, getLeagueSettings } from "../models/Settings.js";
 import { User } from "../models/User.js";
 
-const BACKUP_SCHEMA_VERSION = 2;
+const BACKUP_SCHEMA_VERSION = 3;
 const PRESERVED_USER_ACCOUNT_FIELDS = new Set(["_id", "email", "passwordHash", "createdAt", "updatedAt", "__v"]);
 const BACKUP_COLLECTIONS = [
   { key: "users", Model: User },
@@ -16,7 +20,11 @@ const BACKUP_COLLECTIONS = [
   { key: "gameweeks", Model: Gameweek },
   { key: "lineups", Model: Lineup },
   { key: "settings", Model: Settings },
-  { key: "news", Model: NewsItem }
+  { key: "news", Model: NewsItem },
+  { key: "mundoArticles", Model: MundoArticle },
+  { key: "mundoEvents", Model: MundoEvent },
+  { key: "mundoPlayerStatuses", Model: MundoPlayerStatus },
+  { key: "mundoPredictions", Model: MundoPrediction }
 ];
 
 function cleanDocs(docs = []) {
@@ -32,6 +40,10 @@ function countSnapshot(snapshot) {
     lineups: snapshot.lineups?.length || 0,
     settings: snapshot.settings?.length || 0,
     news: snapshot.news?.length || 0,
+    mundoArticles: snapshot.mundoArticles?.length || 0,
+    mundoEvents: snapshot.mundoEvents?.length || 0,
+    mundoPlayerStatuses: snapshot.mundoPlayerStatuses?.length || 0,
+    mundoPredictions: snapshot.mundoPredictions?.length || 0,
     collections: BACKUP_COLLECTIONS.length
   };
 }
@@ -189,7 +201,11 @@ export async function restoreLeagueBackup(backupId, { restoredBy = null, restore
     Player.deleteMany({}),
     Club.deleteMany({}),
     Settings.deleteMany({}),
-    NewsItem.deleteMany({})
+    NewsItem.deleteMany({}),
+    MundoArticle.deleteMany({}),
+    MundoEvent.deleteMany({}),
+    MundoPlayerStatus.deleteMany({}),
+    MundoPrediction.deleteMany({})
   ]);
 
   await insertManyIfAny(Settings, settingsSnapshot);
@@ -199,6 +215,10 @@ export async function restoreLeagueBackup(backupId, { restoredBy = null, restore
   await insertManyIfAny(Player, snapshot.players || []);
   await insertManyIfAny(Gameweek, snapshot.gameweeks || []);
   await insertManyIfAny(NewsItem, snapshot.news || []);
+  await insertManyIfAny(MundoArticle, snapshot.mundoArticles || []);
+  await insertManyIfAny(MundoEvent, snapshot.mundoEvents || []);
+  await insertManyIfAny(MundoPlayerStatus, snapshot.mundoPlayerStatuses || []);
+  await insertManyIfAny(MundoPrediction, snapshot.mundoPredictions || []);
 
   const userIdMap = await restoreUsers(snapshot.users || [], initialBudget);
   await insertManyIfAny(Lineup, remapLineups(snapshot.lineups || [], userIdMap));
@@ -216,7 +236,11 @@ export async function restoreLeagueBackup(backupId, { restoredBy = null, restore
       gameweeks: snapshot.gameweeks || [],
       lineups: snapshot.lineups || [],
       settings: snapshot.settings || [],
-      news: snapshot.news || []
+      news: snapshot.news || [],
+      mundoArticles: snapshot.mundoArticles || [],
+      mundoEvents: snapshot.mundoEvents || [],
+      mundoPlayerStatuses: snapshot.mundoPlayerStatuses || [],
+      mundoPredictions: snapshot.mundoPredictions || []
     })
   };
 }

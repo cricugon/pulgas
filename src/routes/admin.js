@@ -8,6 +8,8 @@ import { Player } from "../models/Player.js";
 import { getLeagueSettings } from "../models/Settings.js";
 import { User } from "../models/User.js";
 import { LeagueBackup } from "../models/LeagueBackup.js";
+import { MundoPlayerStatus } from "../models/MundoPlayerStatus.js";
+import { MundoPrediction } from "../models/MundoPrediction.js";
 import { createLeagueBackup, restoreLeagueBackup } from "../services/backups.js";
 import { resetLeague } from "../services/leagueReset.js";
 import { updateMarketValuesAfterGameweek } from "../services/marketValues.js";
@@ -355,6 +357,13 @@ adminRouter.delete("/players/:id", async (req, res) => {
   await User.updateMany({}, { $pull: { squad: player._id } });
   await Lineup.updateMany({}, { $pull: { players: player._id } });
   await Gameweek.updateMany({}, { $pull: { "matches.$[].playerScores": { player: player._id } } });
+  await MundoPlayerStatus.deleteOne({ player: player._id });
+  await MundoPrediction.deleteMany({
+    $or: [
+      { "teams.picks.starter": player._id },
+      { "teams.picks.challenger": player._id }
+    ]
+  });
 
   res.json({ message: "Jugador eliminado." });
 });
@@ -563,6 +572,7 @@ adminRouter.delete("/gameweeks/:id", async (req, res) => {
   if (!gameweek) return res.status(404).json({ message: "Jornada no encontrada." });
 
   await Lineup.deleteMany({ gameweek: gameweek._id });
+  await MundoPrediction.deleteMany({ gameweek: gameweek._id });
   res.json({ message: "Jornada eliminada." });
 });
 
@@ -696,6 +706,7 @@ adminRouter.delete("/gameweeks/:id/matches/:matchId", async (req, res) => {
   match.deleteOne();
   await gameweek.save();
   await recalculateGameweek(gameweek._id);
+  await MundoPrediction.deleteOne({ gameweek: gameweek._id, matchId: req.params.matchId });
 
   res.json({ message: "Partido eliminado.", gameweek });
 });

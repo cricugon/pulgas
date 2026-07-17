@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#050810" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Redaccion | Mundo Las Pulgas</title>
+    <link rel="icon" href="/assets/las-pulgas-fantasy-logo.png" />
+    <link rel="stylesheet" href="/mundolaspulgas/styles.css" />
+    <link rel="stylesheet" href="/mundolaspulgas/admin.css" />
+  </head>
+  <body class="editor-body">
+    <main id="editorAuth" class="editor-auth">
+      <section class="editor-login-panel">
+        <img src="/assets/las-pulgas-fantasy-logo.png" alt="" />
+        <p class="eyebrow">Acceso privado</p>
+        <h1>Redaccion Mundo Las Pulgas</h1>
+
+        <form id="editorLoginForm" class="editor-form">
+          <label>Email editorial<input id="editorEmail" type="email" autocomplete="username" required /></label>
+          <label>Contrasena<input id="editorPassword" type="password" autocomplete="current-password" required /></label>
+          <button class="editor-primary" type="submit">Entrar al panel</button>
+        </form>
+
+        <form id="editorSetupForm" class="editor-form hidden">
+          <div class="setup-notice">Primera configuracion. Debes tener abierta una sesion del administrador principal de la liga en este navegador.</div>
+          <label>Nombre de la redaccion<input id="setupDisplayName" value="Redaccion Mundo Las Pulgas" maxlength="80" required /></label>
+          <label>Email del nuevo editor<input id="setupEmail" type="email" autocomplete="username" required /></label>
+          <label>Contrasena editorial<input id="setupPassword" type="password" minlength="8" autocomplete="new-password" required /></label>
+          <button class="editor-primary" type="submit">Crear administrador editorial</button>
+        </form>
+      </section>
+    </main>
+
+    <div id="editorShell" class="editor-shell hidden">
+      <header class="editor-header">
+        <div class="editor-header-inner">
+          <div class="editor-brand">
+            <img src="/assets/las-pulgas-fantasy-logo.png" alt="" />
+            <span><strong>Mundo Las Pulgas</strong><small id="editorIdentity">Redaccion</small></span>
+          </div>
+          <a class="editor-icon-button" href="/mundolaspulgas" target="_blank" aria-label="Abrir portal publico" title="Abrir portal publico">↗</a>
+          <button id="editorLogout" class="editor-icon-button" type="button" aria-label="Cerrar sesion" title="Cerrar sesion">×</button>
+        </div>
+      </header>
+
+      <nav class="editor-tabs" aria-label="Secciones editoriales">
+        <button class="active" data-editor-tab="articles" type="button">Noticias</button>
+        <button data-editor-tab="predictions" type="button">Predicciones</button>
+        <button data-editor-tab="statuses" type="button">Estados</button>
+        <button data-editor-tab="account" type="button">Cuenta</button>
+      </nav>
+
+      <main class="editor-main">
+        <section class="editor-view active" data-editor-view="articles">
+          <div class="editor-page-heading">
+            <div><p class="eyebrow">Contenido</p><h1>Noticias</h1></div>
+            <button id="newArticleButton" class="editor-secondary" type="button">Nueva noticia</button>
+          </div>
+          <div class="editor-split">
+            <form id="articleForm" class="editor-form editor-workspace">
+              <input id="articleId" type="hidden" />
+              <label>Titulo<input id="articleTitle" maxlength="180" required /></label>
+              <label>Texto<textarea id="articleBody" rows="14" maxlength="30000" required></textarea></label>
+              <label>Foto principal<input id="articleImage" type="file" accept="image/jpeg,image/png,image/webp" /></label>
+              <div id="articleImagePreview" class="article-image-preview"></div>
+              <label>Publicacion
+                <select id="articleStatus"><option value="draft">Borrador</option><option value="published">Publicada</option></select>
+              </label>
+              <div class="editor-actions">
+                <button id="saveArticleButton" class="editor-primary" type="submit">Guardar noticia</button>
+                <button id="cancelArticleButton" class="editor-secondary" type="button">Limpiar</button>
+              </div>
+            </form>
+            <div id="editorArticleList" class="editor-list"></div>
+          </div>
+        </section>
+
+        <section class="editor-view" data-editor-view="predictions">
+          <div class="editor-page-heading"><div><p class="eyebrow">Futbol 7</p><h1>Alineaciones probables</h1></div></div>
+          <div class="prediction-selector-bar">
+            <label>Jornada<select id="predictionGameweek"></select></label>
+            <label>Partido<select id="predictionMatch"></select></label>
+            <button id="loadPrediction" class="editor-secondary" type="button">Abrir partido</button>
+          </div>
+          <div id="predictionEditor" class="prediction-editor-empty">Selecciona una jornada y un partido.</div>
+        </section>
+
+        <section class="editor-view" data-editor-view="statuses">
+          <div class="editor-page-heading"><div><p class="eyebrow">Parte medico</p><h1>Estado de jugadores</h1></div></div>
+          <div class="status-toolbar">
+            <label>Club<select id="statusClubFilter"></select></label>
+            <label>Buscar<input id="statusSearch" type="search" placeholder="Nombre del jugador" /></label>
+          </div>
+          <div id="editorStatusList" class="editor-status-list"></div>
+        </section>
+
+        <section class="editor-view" data-editor-view="account">
+          <div class="editor-page-heading"><div><p class="eyebrow">Seguridad</p><h1>Cuenta editorial</h1></div></div>
+          <form id="editorPasswordForm" class="editor-form account-form">
+            <label>Contrasena actual<input id="currentEditorPassword" type="password" autocomplete="current-password" required /></label>
+            <label>Nueva contrasena<input id="newEditorPassword" type="password" minlength="8" autocomplete="new-password" required /></label>
+            <label>Repetir nueva contrasena<input id="confirmEditorPassword" type="password" minlength="8" autocomplete="new-password" required /></label>
+            <button class="editor-primary" type="submit">Actualizar contrasena</button>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <div id="editorToast" class="world-toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/mundolaspulgas/admin.js"></script>
+  </body>
+</html>

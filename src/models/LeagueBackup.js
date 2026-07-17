@@ -19,7 +19,11 @@ const leagueBackupSchema = new mongoose.Schema(
       lineups: { type: Number, default: 0 },
       settings: { type: Number, default: 0 },
       collections: { type: Number, default: 0 },
-      news: { type: Number, default: 0 }
+      news: { type: Number, default: 0 },
+      mundoArticles: { type: Number, default: 0 },
+      mundoEvents: { type: Number, default: 0 },
+      mundoPlayerStatuses: { type: Number, default: 0 },
+      mundoPredictions: { type: Number, default: 0 }
     },
     snapshot: { type: mongoose.Schema.Types.Mixed, default: {} }
   },

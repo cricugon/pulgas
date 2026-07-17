@@ -162,6 +162,7 @@ const els = {
   matchGameweekInput: $("#matchGameweekInput"),
   matchHomeInput: $("#matchHomeInput"),
   matchAwayInput: $("#matchAwayInput"),
+  matchKickoffInput: $("#matchKickoffInput"),
   matchStatusInput: $("#matchStatusInput"),
   matchSubmitBtn: $("#matchSubmitBtn"),
   matchResetBtn: $("#matchResetBtn"),
@@ -291,6 +292,14 @@ function formatDateTime(value) {
     dateStyle: "short",
     timeStyle: "short"
   }).format(new Date(value));
+}
+
+function toDateTimeLocal(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
 }
 
 function escapeHtml(value = "") {
@@ -555,6 +564,7 @@ function renderActiveGameweek() {
             <strong>${match.homeScore ?? "-"} : ${match.awayScore ?? "-"}</strong>
             <span>${escapeHtml(match.awayClub?.shortName || "VIS")}</span>
           </div>
+          <div class="score-line match-kickoff">${formatDateTime(match.kickoff)}</div>
           <div class="score-line">${escapeHtml(match.status)}${scores ? ` · ${scores}` : ""}</div>
         </button>
       `;
@@ -1840,6 +1850,7 @@ function renderAdminBackup(backup) {
         <small>${escapeHtml(reasonLabel)} - ${formatDateTime(backup.createdAt)} - ${counts.players || 0} jugadores - ${counts.gameweeks || 0} jornadas - ${counts.lineups || 0} alineaciones - ${counts.news || 0} noticias - ${counts.settings || 0} config.</small>
         <small>Colecciones snapshot: ${counts.collections || 7}</small>
         <small>Usuarios snapshot: ${counts.users || 0}${backup.createdByEmail ? ` - creado por ${escapeHtml(backup.createdByEmail)}` : ""}</small>
+        <small>Mundo Las Pulgas: ${counts.mundoArticles || 0} noticias - ${counts.mundoPredictions || 0} predicciones - ${counts.mundoPlayerStatuses || 0} estados</small>
       </div>
       <div class="row-actions">
         <button class="mini-button" data-restore-backup="${backup._id}">Restaurar</button>
@@ -1859,6 +1870,7 @@ function renderAdminGameweek(gw) {
           <strong>${match.homeScore ?? "-"} : ${match.awayScore ?? "-"}</strong>
           <span>${escapeHtml(match.awayClub?.shortName || "")}</span>
         </div>
+        <div class="score-line match-kickoff">${formatDateTime(match.kickoff)}</div>
         <div class="score-line">${match.status} · ${matchScoredPlayers(match)} puntuados</div>
         <div class="row-actions">
           <button class="mini-button" data-edit-match="${match._id}" data-match-gw="${gw._id}">Editar partido</button>
@@ -2438,6 +2450,7 @@ async function saveMatch(event) {
       body: {
         homeClub: els.matchHomeInput.value,
         awayClub: els.matchAwayInput.value,
+        kickoff: els.matchKickoffInput.value ? new Date(els.matchKickoffInput.value).toISOString() : null,
         status: els.matchStatusInput.value
       }
     });
@@ -2460,6 +2473,7 @@ function editMatch(gameweekId, matchId) {
   els.matchGameweekInput.value = gw._id;
   els.matchHomeInput.value = match.homeClub?._id || match.homeClub;
   els.matchAwayInput.value = match.awayClub?._id || match.awayClub;
+  els.matchKickoffInput.value = toDateTimeLocal(match.kickoff);
   els.matchStatusInput.value = match.status;
   els.matchSubmitBtn.textContent = "Actualizar partido";
   renderScoreMatchOptions();

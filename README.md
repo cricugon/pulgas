@@ -11,12 +11,30 @@ App web cliente-servidor mobile-first tipo Comunio/Biwenger, hecha con HTML, CSS
 - Mercado simulado de jugadores con compra y venta.
 - Jugadores asociados a clubes reales.
 - Jornadas con partidos entre clubes reales.
+- Fecha y hora configurable para cada partido.
 - Alineaciones de futbol 7 por jornada con limite de presupuesto, selector de formacion y editor visual sobre campo.
 - Al iniciar una jornada se bloquea el equipo/alineacion activa de cada usuario.
 - Puntuaciones por jugador y recalculo automatico de puntos de alineaciones.
 - Al finalizar una jornada se suman los puntos y se actualiza la clasificacion general.
 - Panel admin para gestionar configuracion, jugadores, clubes, equipos de usuario, jornadas, partidos, estados y puntuaciones.
 - Interfaz mobile-first oscura, deportiva y futurista.
+- Portal editorial independiente `Mundo Las Pulgas` con noticias, archivo, eventos, estados de jugadores y alineaciones probables.
+
+## Mundo Las Pulgas
+
+El portal publico esta disponible en:
+
+```text
+http://localhost:3000/mundolaspulgas
+```
+
+El panel editorial no aparece enlazado en ningun menu y utiliza una cuenta distinta a la administracion de la liga:
+
+```text
+http://localhost:3000/mundolaspulgas/gestion-editorial-7
+```
+
+La primera vez, inicia sesion como administrador principal en la app y abre esa ruta en el mismo navegador. El formulario inicial permite crear la cuenta editorial; una vez creada, la configuracion inicial queda cerrada y solo se muestra su login propio.
 
 ## Requisitos
 

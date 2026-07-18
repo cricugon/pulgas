@@ -225,10 +225,82 @@ async function renderArchive() {
   renderArchiveContent();
 }
 
+function articleShareMarkup(article, shareUrl) {
+  const shareText = `${article.title}\n${shareUrl}`;
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+  const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+  const xUrl = `https://x.com/intent/post?text=${encodeURIComponent(shareText)}`;
+  return `
+    <section class="article-share" aria-labelledby="articleShareTitle">
+      <div class="article-share-heading">
+        <span id="articleShareTitle">Compartir noticia</span>
+      </div>
+      <div class="article-share-actions">
+        <button class="article-share-button native" data-share-native type="button" hidden><span aria-hidden="true">&#8599;</span>Compartir</button>
+        <button class="article-share-button copy" data-share-copy type="button"><span aria-hidden="true">&#10697;</span><span data-share-copy-label>Copiar enlace</span></button>
+        <a class="article-share-button whatsapp" href="${escapeHtml(whatsappUrl)}" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">WA</span>WhatsApp</a>
+        <a class="article-share-button facebook" href="${escapeHtml(facebookUrl)}" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">f</span>Facebook</a>
+        <a class="article-share-button x" href="${escapeHtml(xUrl)}" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">X</span>Twitter</a>
+      </div>
+    </section>
+  `;
+}
+
+async function copyShareUrl(url) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    await navigator.clipboard.writeText(url);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = url;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (!copied) throw new Error("No se pudo copiar el enlace.");
+}
+
+function bindArticleShare(article, shareUrl) {
+  const nativeButton = app.querySelector("[data-share-native]");
+  const copyButton = app.querySelector("[data-share-copy]");
+  const copyLabel = app.querySelector("[data-share-copy-label]");
+
+  if (nativeButton && navigator.share) {
+    nativeButton.hidden = false;
+    nativeButton.addEventListener("click", async () => {
+      try {
+        await navigator.share({ title: article.title, text: article.excerpt || "Mundo Las Pulgas", url: shareUrl });
+      } catch (error) {
+        if (error.name !== "AbortError") showToast("No se pudo abrir el menu para compartir.");
+      }
+    });
+  }
+
+  copyButton?.addEventListener("click", async () => {
+    try {
+      await copyShareUrl(shareUrl);
+      copyLabel.textContent = "Enlace copiado";
+      copyButton.classList.add("copied");
+      showToast("Enlace de la noticia copiado.");
+      window.setTimeout(() => {
+        copyLabel.textContent = "Copiar enlace";
+        copyButton.classList.remove("copied");
+      }, 2200);
+    } catch (error) {
+      showToast(error.message || "No se pudo copiar el enlace.");
+    }
+  });
+}
+
 async function renderArticle(slug) {
   setActiveNav("archive");
   loading();
   const { article } = await api(`/api/mundo/articles/${encodeURIComponent(slug)}`);
+  const shareUrl = new URL(`/mundolaspulgas/noticias/${encodeURIComponent(article.slug)}`, window.location.origin).href;
   document.title = `${article.title} | Mundo Las Pulgas`;
   app.innerHTML = `
     <article class="article-page">
@@ -240,8 +312,10 @@ async function renderArticle(slug) {
       </header>
       <img class="article-cover" src="${escapeHtml(article.imageUrl)}" alt="" />
       <div class="article-body">${article.bodyHtml || `<p>${escapeHtml(article.body || "").replaceAll("\n", "<br />")}</p>`}</div>
+      ${articleShareMarkup(article, shareUrl)}
     </article>
   `;
+  bindArticleShare(article, shareUrl);
 }
 
 async function renderMatches() {

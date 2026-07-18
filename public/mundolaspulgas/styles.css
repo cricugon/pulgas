@@ -225,6 +225,23 @@ img { display: block; max-width: 100%; }
 .article-body th, .article-body td { min-width: 110px; padding: 8px 10px; border: 1px solid var(--line); text-align: left; }
 .article-body th { color: #fff; background: var(--surface-2); }
 .article-body input[type="checkbox"] { margin-right: 7px; accent-color: var(--cyan); }
+.article-share { margin-top: 10px; padding: 20px 0 8px; border-top: 1px solid var(--line); }
+.article-share-heading { margin-bottom: 11px; color: #fff; font-size: .72rem; font-weight: 900; text-transform: uppercase; }
+.article-share-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.article-share-button { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: 7px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 5px; color: #dbe6f4; background: var(--surface); font: inherit; font-size: .72rem; font-weight: 850; text-decoration: none; cursor: pointer; }
+.article-share-button > span[aria-hidden="true"] { display: grid; width: 22px; height: 22px; place-items: center; border-radius: 50%; color: #fff; background: #26364c; font-size: .67rem; font-weight: 950; }
+.article-share-button:hover, .article-share-button:focus-visible { border-color: var(--cyan); color: #fff; background: var(--surface-2); }
+.article-share-button.native > span { background: var(--blue); }
+.article-share-button.whatsapp > span { background: #188d4b; }
+.article-share-button.facebook > span { background: #2867b2; font-size: .9rem; }
+.article-share-button.x > span { background: #05070b; }
+.article-share-button.copied { border-color: #35d98f; color: #bff8d9; }
+
+@media (max-width: 520px) {
+  .article-share-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .article-share-button { width: 100%; min-width: 0; padding-right: 8px; padding-left: 8px; }
+  .article-share-button.native { grid-column: 1 / -1; }
+}
 
 .club-card { position: relative; display: block; min-height: 150px; padding: 18px; overflow: hidden; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
 .club-card::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 5px; background: var(--club-color, var(--blue)); }

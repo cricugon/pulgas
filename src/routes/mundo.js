@@ -12,6 +12,7 @@ import { MundoMedia } from "../models/MundoMedia.js";
 import { MundoPlayerStatus } from "../models/MundoPlayerStatus.js";
 import { MundoPrediction } from "../models/MundoPrediction.js";
 import { Player } from "../models/Player.js";
+import { markdownToPlainText, renderArticleMarkdown } from "../services/markdown.js";
 import { buildFinalMatchLineup, hasOfficialMatchScores } from "../services/mundoFinalLineup.js";
 
 export const mundoRouter = express.Router();
@@ -75,7 +76,7 @@ function serializeArticle(article, { includeBody = false } = {}) {
     _id: value._id,
     title: value.title,
     slug: value.slug,
-    excerpt: value.excerpt,
+    excerpt: buildExcerpt(value.body),
     imageUrl: articleImageUrl(value),
     relatedPlayer: value.relatedPlayer || null,
     status: value.status,
@@ -85,7 +86,10 @@ function serializeArticle(article, { includeBody = false } = {}) {
     views: value.views || 0
   };
 
-  if (includeBody) serialized.body = value.body;
+  if (includeBody) {
+    serialized.body = value.body;
+    serialized.bodyHtml = renderArticleMarkdown(value.body);
+  }
   return serialized;
 }
 
@@ -140,7 +144,7 @@ function parseImageDataUrl(value) {
 }
 
 function buildExcerpt(body = "") {
-  const text = String(body).replace(/\s+/g, " ").trim();
+  const text = markdownToPlainText(body);
   return text.length > 220 ? `${text.slice(0, 217).trim()}...` : text;
 }
 
@@ -498,6 +502,14 @@ mundoAdminRouter.get("/articles", asyncRoute(async (_req, res) => {
     .sort({ updatedAt: -1 });
   res.json({ articles: articles.map((article) => serializeArticle(article, { includeBody: true })) });
 }));
+
+mundoAdminRouter.post("/articles/preview", (req, res) => {
+  const body = String(req.body.body || "");
+  if (body.length > 30000) {
+    return res.status(400).json({ message: "La noticia supera la longitud maxima permitida." });
+  }
+  return res.json({ html: renderArticleMarkdown(body) });
+});
 
 mundoAdminRouter.post("/articles", asyncRoute(async (req, res) => {
   try {

@@ -17,6 +17,7 @@ const els = {
   loginEmail: $("#editorEmail"), loginPassword: $("#editorPassword"), setupDisplayName: $("#setupDisplayName"), setupEmail: $("#setupEmail"), setupPassword: $("#setupPassword"),
   identity: $("#editorIdentity"), logout: $("#editorLogout"), toast: $("#editorToast"),
   articleForm: $("#articleForm"), articleId: $("#articleId"), articleTitle: $("#articleTitle"), articleBody: $("#articleBody"), articleImage: $("#articleImage"), articlePlayer: $("#articlePlayer"), articleStatus: $("#articleStatus"),
+  articleMarkdownPreview: $("#articleMarkdownPreview"), articleMarkdownPreviewButton: $("#articleMarkdownPreviewButton"),
   articlePreview: $("#articleImagePreview"), articleList: $("#editorArticleList"), saveArticle: $("#saveArticleButton"), cancelArticle: $("#cancelArticleButton"), newArticle: $("#newArticleButton"),
   predictionGameweek: $("#predictionGameweek"), predictionMatch: $("#predictionMatch"), loadPrediction: $("#loadPrediction"), predictionEditor: $("#predictionEditor"),
   statusClubFilter: $("#statusClubFilter"), statusSearch: $("#statusSearch"), statusList: $("#editorStatusList"),
@@ -171,6 +172,13 @@ function setTab(tab) {
   $$('[data-editor-view]').forEach((view) => view.classList.toggle("active", view.dataset.editorView === tab));
 }
 
+function closeArticleMarkdownPreview() {
+  window.clearTimeout(els.articleBody.previewTimer);
+  els.articleMarkdownPreview.innerHTML = "";
+  els.articleMarkdownPreview.classList.add("hidden");
+  els.articleMarkdownPreviewButton.textContent = "Vista previa";
+}
+
 function resetArticleForm() {
   els.articleForm.reset();
   els.articleId.value = "";
@@ -178,8 +186,44 @@ function resetArticleForm() {
   state.articleImageDataUrl = "";
   els.articlePreview.innerHTML = "";
   els.articlePreview.classList.remove("active");
+  closeArticleMarkdownPreview();
   els.saveArticle.dataset.defaultLabel = "Guardar noticia";
   els.saveArticle.textContent = "Guardar noticia";
+}
+
+async function refreshArticleMarkdownPreview({ reportError = true } = {}) {
+  const body = els.articleBody.value.trim();
+  if (!body) {
+    els.articleMarkdownPreview.innerHTML = "";
+    return false;
+  }
+
+  try {
+    const data = await api("/api/mundo/admin/articles/preview", { method: "POST", body: { body } });
+    els.articleMarkdownPreview.innerHTML = data.html;
+    return true;
+  } catch (error) {
+    if (reportError) showToast(error.message, true);
+    return false;
+  }
+}
+
+async function toggleArticleMarkdownPreview() {
+  const willOpen = els.articleMarkdownPreview.classList.contains("hidden");
+  if (!willOpen) {
+    els.articleMarkdownPreview.classList.add("hidden");
+    els.articleMarkdownPreviewButton.textContent = "Vista previa";
+    return;
+  }
+  if (!els.articleBody.value.trim()) return showToast("Escribe el texto de la noticia para previsualizarlo.", true);
+
+  setButtonLoading(els.articleMarkdownPreviewButton, true, "Generando...");
+  const rendered = await refreshArticleMarkdownPreview();
+  setButtonLoading(els.articleMarkdownPreviewButton, false);
+  if (rendered) {
+    els.articleMarkdownPreview.classList.remove("hidden");
+    els.articleMarkdownPreviewButton.textContent = "Ocultar vista previa";
+  }
 }
 
 function renderArticles() {
@@ -212,6 +256,7 @@ function editArticle(id) {
   els.articleImage.value = "";
   els.articlePreview.innerHTML = article.imageUrl ? `<img src="${escapeHtml(article.imageUrl)}" alt="Vista previa" />` : "";
   els.articlePreview.classList.toggle("active", Boolean(article.imageUrl));
+  closeArticleMarkdownPreview();
   els.saveArticle.dataset.defaultLabel = "Actualizar noticia";
   els.saveArticle.textContent = "Actualizar noticia";
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -498,6 +543,13 @@ els.articleImage.addEventListener("change", async () => {
     els.articleImage.value = "";
     showToast(error.message, true);
   }
+});
+
+els.articleMarkdownPreviewButton.addEventListener("click", toggleArticleMarkdownPreview);
+els.articleBody.addEventListener("input", () => {
+  if (els.articleMarkdownPreview.classList.contains("hidden")) return;
+  window.clearTimeout(els.articleBody.previewTimer);
+  els.articleBody.previewTimer = window.setTimeout(() => refreshArticleMarkdownPreview({ reportError: false }), 350);
 });
 
 els.articleForm.addEventListener("submit", async (event) => {

@@ -229,7 +229,6 @@ async function renderArticle(slug) {
   setActiveNav("archive");
   loading();
   const { article } = await api(`/api/mundo/articles/${encodeURIComponent(slug)}`);
-  const paragraphs = String(article.body || "").split(/\n{2,}/).filter(Boolean);
   document.title = `${article.title} | Mundo Las Pulgas`;
   app.innerHTML = `
     <article class="article-page">
@@ -240,7 +239,7 @@ async function renderArticle(slug) {
         <span class="story-meta">Publicado ${formatDate(article.publishedAt)} · ${article.views || 0} lecturas</span>
       </header>
       <img class="article-cover" src="${escapeHtml(article.imageUrl)}" alt="" />
-      <div class="article-body">${paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph).replaceAll("\n", "<br />")}</p>`).join("")}</div>
+      <div class="article-body">${article.bodyHtml || `<p>${escapeHtml(article.body || "").replaceAll("\n", "<br />")}</p>`}</div>
     </article>
   `;
 }

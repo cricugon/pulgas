@@ -68,6 +68,12 @@
 .article-image-preview { display: none; overflow: hidden; border: 1px solid var(--line); border-radius: 5px; }
 .article-image-preview.active { display: block; }
 .article-image-preview img { width: 100%; max-height: 260px; object-fit: cover; }
+.article-markdown-field { display: grid; gap: 7px; }
+.article-markdown-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.article-markdown-toolbar label { font-size: .72rem; font-weight: 800; }
+.article-markdown-toolbar button { min-height: 34px; padding: 7px 10px; }
+.article-markdown-preview { max-height: 520px; overflow: auto; padding: 16px; border: 1px solid var(--line); border-radius: 5px; background: #080f1b; }
+.article-markdown-preview.hidden { display: none; }
 .editor-list { display: grid; align-content: start; gap: 8px; }
 .editor-list-row { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
 .editor-list-row img { width: 78px; height: 72px; object-fit: cover; border-radius: 4px; }

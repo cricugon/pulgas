@@ -62,7 +62,14 @@
             <form id="articleForm" class="editor-form editor-workspace">
               <input id="articleId" type="hidden" />
               <label>Titulo<input id="articleTitle" maxlength="180" required /></label>
-              <label>Texto<textarea id="articleBody" rows="14" maxlength="30000" required></textarea></label>
+              <div class="article-markdown-field">
+                <div class="article-markdown-toolbar">
+                  <label for="articleBody">Texto Markdown</label>
+                  <button id="articleMarkdownPreviewButton" class="editor-secondary" type="button">Vista previa</button>
+                </div>
+                <textarea id="articleBody" rows="14" maxlength="30000" required></textarea>
+                <div id="articleMarkdownPreview" class="article-body article-markdown-preview hidden"></div>
+              </div>
               <label>Foto principal<input id="articleImage" type="file" accept="image/jpeg,image/png,image/webp" /></label>
               <div id="articleImagePreview" class="article-image-preview"></div>
               <label>Jugador relacionado

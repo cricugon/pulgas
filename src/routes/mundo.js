@@ -12,6 +12,7 @@ import { MundoMedia } from "../models/MundoMedia.js";
 import { MundoPlayerStatus } from "../models/MundoPlayerStatus.js";
 import { MundoPrediction } from "../models/MundoPrediction.js";
 import { Player } from "../models/Player.js";
+import { optimizeArticleImage } from "../services/imageOptimization.js";
 import { markdownToPlainText, renderArticleMarkdown } from "../services/markdown.js";
 import { buildFinalMatchLineup, hasOfficialMatchScores } from "../services/mundoFinalLineup.js";
 
@@ -141,6 +142,13 @@ function parseImageDataUrl(value) {
   }
 
   return { data, contentType: match[1].toLowerCase() };
+}
+
+function imageOptimizationNotice(image) {
+  if (!image) return "";
+  return image.savedPercent > 0
+    ? ` Imagen optimizada: ${image.savedPercent}% menos de peso.`
+    : " Imagen optimizada para web.";
 }
 
 function buildExcerpt(body = "") {
@@ -516,18 +524,23 @@ mundoAdminRouter.post("/articles", asyncRoute(async (req, res) => {
     const title = String(req.body.title || "").trim();
     const body = String(req.body.body || "").trim();
     const status = VALID_ARTICLE_STATUSES.has(req.body.status) ? req.body.status : "draft";
-    const image = parseImageDataUrl(req.body.imageDataUrl);
+    const uploadedImage = parseImageDataUrl(req.body.imageDataUrl);
     const relatedPlayer = await normalizeRelatedPlayer(req.body.relatedPlayer);
     if (!title || !body) return res.status(400).json({ message: "Titulo y texto son obligatorios." });
     if (title.length > 180 || body.length > 30000) {
       return res.status(400).json({ message: "La noticia supera la longitud maxima permitida." });
     }
-    if (status === "published" && !image) return res.status(400).json({ message: "La noticia necesita una foto principal para publicarse." });
+    if (status === "published" && !uploadedImage) return res.status(400).json({ message: "La noticia necesita una foto principal para publicarse." });
+    const image = uploadedImage ? await optimizeArticleImage(uploadedImage) : null;
 
     const media = image ? await MundoMedia.create({
       data: image.data,
       contentType: image.contentType,
       filename: String(req.body.imageFilename || ""),
+      width: image.width,
+      height: image.height,
+      sizeBytes: image.sizeBytes,
+      sourceSizeBytes: image.sourceSizeBytes,
       uploadedBy: req.mundoAdmin._id
     }) : null;
     const article = await MundoArticle.create({
@@ -549,7 +562,10 @@ mundoAdminRouter.post("/articles", asyncRoute(async (req, res) => {
         metadata: { articleId: article._id, slug: article.slug }
       });
     }
-    res.status(201).json({ message: status === "published" ? "Noticia publicada." : "Borrador guardado.", article: serializeArticle(article, { includeBody: true }) });
+    res.status(201).json({
+      message: `${status === "published" ? "Noticia publicada." : "Borrador guardado."}${imageOptimizationNotice(image)}`,
+      article: serializeArticle(article, { includeBody: true })
+    });
   } catch (error) {
     publicError(res, error, "No se pudo guardar la noticia.");
   }
@@ -559,22 +575,28 @@ mundoAdminRouter.put("/articles/:id", asyncRoute(async (req, res) => {
   try {
     const article = await MundoArticle.findById(req.params.id);
     if (!article) return res.status(404).json({ message: "Noticia no encontrada." });
+    const previousImageId = article.image;
     const wasPublished = article.status === "published";
     const title = String(req.body.title || "").trim();
     const body = String(req.body.body || "").trim();
     const status = VALID_ARTICLE_STATUSES.has(req.body.status) ? req.body.status : article.status;
-    const image = req.body.imageDataUrl ? parseImageDataUrl(req.body.imageDataUrl) : null;
+    const uploadedImage = req.body.imageDataUrl ? parseImageDataUrl(req.body.imageDataUrl) : null;
     const relatedPlayer = await normalizeRelatedPlayer(req.body.relatedPlayer);
     if (!title || !body) return res.status(400).json({ message: "Titulo y texto son obligatorios." });
     if (title.length > 180 || body.length > 30000) {
       return res.status(400).json({ message: "La noticia supera la longitud maxima permitida." });
     }
+    const image = uploadedImage ? await optimizeArticleImage(uploadedImage) : null;
 
     if (image) {
       const media = await MundoMedia.create({
         data: image.data,
         contentType: image.contentType,
         filename: String(req.body.imageFilename || ""),
+        width: image.width,
+        height: image.height,
+        sizeBytes: image.sizeBytes,
+        sourceSizeBytes: image.sourceSizeBytes,
         uploadedBy: req.mundoAdmin._id
       });
       article.image = media._id;
@@ -601,7 +623,13 @@ mundoAdminRouter.put("/articles/:id", asyncRoute(async (req, res) => {
         metadata: { articleId: article._id, slug: article.slug }
       });
     }
-    res.json({ message: status === "published" ? "Noticia actualizada y publicada." : "Borrador actualizado.", article: serializeArticle(article, { includeBody: true }) });
+    if (previousImageId && String(previousImageId) !== String(article.image || "")) {
+      await MundoMedia.deleteOne({ _id: previousImageId }).catch(() => {});
+    }
+    res.json({
+      message: `${status === "published" ? "Noticia actualizada y publicada." : "Borrador actualizado."}${imageOptimizationNotice(image)}`,
+      article: serializeArticle(article, { includeBody: true })
+    });
   } catch (error) {
     publicError(res, error, "No se pudo actualizar la noticia.");
   }
@@ -610,6 +638,7 @@ mundoAdminRouter.put("/articles/:id", asyncRoute(async (req, res) => {
 mundoAdminRouter.delete("/articles/:id", asyncRoute(async (req, res) => {
   const article = await MundoArticle.findByIdAndDelete(req.params.id);
   if (!article) return res.status(404).json({ message: "Noticia no encontrada." });
+  if (article.image) await MundoMedia.deleteOne({ _id: article.image }).catch(() => {});
   res.json({ message: "Noticia eliminada." });
 }));
 

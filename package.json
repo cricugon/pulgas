@@ -19,12 +19,13 @@
     "marked": "18.0.6",
     "mongoose": "^8.9.2",
     "morgan": "^1.10.0",
-    "sanitize-html": "2.17.0"
+    "sanitize-html": "2.17.0",
+    "sharp": "0.35.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.9"
   }
 }

@@ -38,7 +38,7 @@ La primera vez, inicia sesion como administrador principal en la app y abre esa 
 
 ## Requisitos
 
-- Node 20 o superior.
+- Node 20.9 o superior.
 - MongoDB local o remoto.
 
 ## Puesta en marcha

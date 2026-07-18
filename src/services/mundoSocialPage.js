@@ -45,7 +45,7 @@ function articleDescription(article) {
 
 export async function renderMundoArticleSocialPage(req) {
   const article = await MundoArticle.findOne({ slug: req.params.slug, status: "published" })
-    .populate("image", "contentType")
+    .populate("image", "contentType width height")
     .lean();
   if (!article) return null;
 
@@ -70,6 +70,8 @@ export async function renderMundoArticleSocialPage(req) {
     <meta property="og:image" content="${escapeHtmlAttribute(imageUrl)}" />
     ${imageUrl.startsWith("https://") ? `<meta property="og:image:secure_url" content="${escapeHtmlAttribute(imageUrl)}" />` : ""}
     <meta property="og:image:type" content="${escapeHtmlAttribute(article.image?.contentType || "image/png")}" />
+    ${article.image?.width ? `<meta property="og:image:width" content="${Number(article.image.width)}" />` : ""}
+    ${article.image?.height ? `<meta property="og:image:height" content="${Number(article.image.height)}" />` : ""}
     <meta property="og:image:alt" content="Imagen principal de ${escapeHtmlAttribute(article.title)}" />
     ${publishedAt ? `<meta property="article:published_time" content="${escapeHtmlAttribute(publishedAt)}" />` : ""}
     <meta name="twitter:card" content="summary_large_image" />

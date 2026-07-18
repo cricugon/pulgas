@@ -51,6 +51,8 @@ npm install
 
 2. Crea un `.env` a partir de `.env.example` y ajusta `MONGODB_URI` si hace falta.
 
+En produccion, establece `PUBLIC_BASE_URL` con el dominio publico HTTPS de la app. Se utiliza para generar la imagen, URL y metadatos sociales de cada noticia.
+
 3. Arranca MongoDB.
 
 4. Carga datos de demo:

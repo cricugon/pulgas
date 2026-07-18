@@ -12,6 +12,7 @@ import { lineupRouter } from "./routes/lineups.js";
 import { marketRouter } from "./routes/market.js";
 import { mundoRouter } from "./routes/mundo.js";
 import { publicRouter } from "./routes/public.js";
+import { renderMundoArticleSocialPage } from "./services/mundoSocialPage.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,6 +26,18 @@ app.use("/api/admin/clubs", express.json({ limit: "4mb" }));
 app.use("/api/admin/promo", express.json({ limit: "8mb" }));
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
+
+app.get("/mundolaspulgas/noticias/:slug", async (req, res, next) => {
+  try {
+    const page = await renderMundoArticleSocialPage(req);
+    if (!page) return next();
+    res.set("Cache-Control", "public, max-age=300");
+    return res.type("html").send(page);
+  } catch (error) {
+    console.error("No se pudieron generar los metadatos sociales:", error.message);
+    return next();
+  }
+});
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 

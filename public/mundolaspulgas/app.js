@@ -300,7 +300,10 @@ async function renderArticle(slug) {
   setActiveNav("archive");
   loading();
   const { article } = await api(`/api/mundo/articles/${encodeURIComponent(slug)}`);
-  const shareUrl = new URL(`/mundolaspulgas/noticias/${encodeURIComponent(article.slug)}`, window.location.origin).href;
+  const shareUrlObject = new URL(`/mundolaspulgas/noticias/${encodeURIComponent(article.slug)}`, window.location.origin);
+  const shareVersion = new Date(article.updatedAt || article.publishedAt || 0).getTime();
+  if (Number.isFinite(shareVersion) && shareVersion > 0) shareUrlObject.searchParams.set("v", String(shareVersion));
+  const shareUrl = shareUrlObject.href;
   document.title = `${article.title} | Mundo Las Pulgas`;
   app.innerHTML = `
     <article class="article-page">

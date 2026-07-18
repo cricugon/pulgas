@@ -8,7 +8,14 @@ const settingsSchema = new mongoose.Schema(
       required: true,
       min: 0,
       default: Number(process.env.DEFAULT_BUDGET || 120000000)
-    }
+    },
+    promoEnabled: { type: Boolean, default: false },
+    promoDurationSeconds: { type: Number, min: 3, max: 300, default: 15 },
+    promoImageData: { type: Buffer, select: false },
+    promoImageContentType: { type: String, trim: true, default: "" },
+    promoImageFilename: { type: String, trim: true, default: "" },
+    promoImageUpdatedAt: { type: Date, default: null },
+    promoUpdatedAt: { type: Date, default: null }
   },
   { timestamps: true }
 );
@@ -21,7 +28,9 @@ export async function getLeagueSettings() {
     {
       $setOnInsert: {
         key: "league",
-        initialBudget: Number(process.env.DEFAULT_BUDGET || 120000000)
+        initialBudget: Number(process.env.DEFAULT_BUDGET || 120000000),
+        promoEnabled: false,
+        promoDurationSeconds: 15
       }
     },
     { upsert: true, new: true, setDefaultsOnInsert: true }

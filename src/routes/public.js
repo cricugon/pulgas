@@ -4,11 +4,42 @@ import { Gameweek } from "../models/Gameweek.js";
 import { Lineup } from "../models/Lineup.js";
 import { NewsItem } from "../models/NewsItem.js";
 import { MundoArticle } from "../models/MundoArticle.js";
+import { MundoPlayerStatus } from "../models/MundoPlayerStatus.js";
 import { Player } from "../models/Player.js";
+import { Settings, getLeagueSettings } from "../models/Settings.js";
 import { User } from "../models/User.js";
+import { hasOfficialMatchScores } from "../services/mundoFinalLineup.js";
 import { buildGameweekScoreMap, buildPlayerMatchBreakdown } from "../services/scoring.js";
 
 export const publicRouter = express.Router();
+
+function serializePromo(settings) {
+  const hasCustomImage = Boolean(settings?.promoImageContentType && settings?.promoImageUpdatedAt);
+  const imageVersion = settings?.promoImageUpdatedAt?.getTime?.();
+  return {
+    enabled: settings?.promoEnabled !== false && hasCustomImage,
+    durationSeconds: Number(settings?.promoDurationSeconds || 15),
+    imageUrl: hasCustomImage ? `/api/promo/image?v=${imageVersion}` : ""
+  };
+}
+
+publicRouter.get("/promo", async (_req, res) => {
+  const settings = await getLeagueSettings();
+  res.json({ promo: serializePromo(settings) });
+});
+
+publicRouter.get("/promo/image", async (_req, res) => {
+  const settings = await Settings.findOne({ key: "league" }).select(
+    "+promoImageData promoImageContentType promoImageUpdatedAt"
+  );
+  if (!settings?.promoImageData?.length || !settings.promoImageContentType) {
+    return res.status(404).json({ message: "No hay una imagen personalizada para el anuncio." });
+  }
+
+  res.set("Cache-Control", "public, max-age=86400");
+  res.type(settings.promoImageContentType);
+  return res.send(settings.promoImageData);
+});
 
 function serializePlayerForLineup(player, scoreMap) {
   if (!player) return null;
@@ -126,7 +157,7 @@ publicRouter.get("/players/:id/stats", async (req, res) => {
     return res.status(404).json({ message: "Jugador no encontrado." });
   }
 
-  const [gameweeks, lineupUsage, relatedNews] = await Promise.all([
+  const [gameweeks, lineupUsage, relatedNews, mundoStatus] = await Promise.all([
     Gameweek.find({}).sort({ number: -1 }).populate("matches.homeClub matches.awayClub matches.playerScores.player"),
     Lineup.aggregate([
       { $match: { players: player._id, lockedAt: { $exists: true, $ne: null } } },
@@ -135,7 +166,8 @@ publicRouter.get("/players/:id/stats", async (req, res) => {
     MundoArticle.find({ status: "published", relatedPlayer: player._id })
       .select("title slug excerpt image publishedAt updatedAt")
       .sort({ publishedAt: -1 })
-      .limit(20)
+      .limit(20),
+    MundoPlayerStatus.findOne({ player: player._id }).lean()
   ]);
   const usageMap = new Map(lineupUsage.map((item) => [item._id.toString(), item.usedBy]));
   const playerClubId = player.club?._id?.toString();
@@ -165,14 +197,20 @@ publicRouter.get("/players/:id/stats", async (req, res) => {
             kickoff: playerMatch.kickoff,
             status: playerMatch.status,
             homeScore: playerMatch.homeScore,
-            awayScore: playerMatch.awayScore
+            awayScore: playerMatch.awayScore,
+            isScored: hasOfficialMatchScores(playerMatch)
           }
         : null
     };
   });
 
   res.json({
-    player,
+    player: {
+      ...player.toObject(),
+      mundoStatus: mundoStatus
+        ? { status: mundoStatus.status, note: mundoStatus.note || "", updatedAt: mundoStatus.updatedAt }
+        : { status: "available", note: "", updatedAt: null }
+    },
     summary: {
       totalPoints: player.totalPoints || 0,
       totalLineups: byGameweek.reduce((sum, row) => sum + Number(row.usedBy || 0), 0),

@@ -29,6 +29,7 @@ const state = {
   historyGameweekDetails: {},
   playerStatsCache: {},
   clubBadgeDataUrl: "",
+  promoImageDataUrl: "",
   admin: {
     summary: null,
     settings: null,
@@ -122,6 +123,12 @@ const els = {
   adminModalBody: $("#adminModalBody"),
   settingsForm: $("#settingsForm"),
   initialBudgetInput: $("#initialBudgetInput"),
+  promoForm: $("#promoForm"),
+  promoEnabledInput: $("#promoEnabledInput"),
+  promoDurationInput: $("#promoDurationInput"),
+  promoImageInput: $("#promoImageInput"),
+  promoAdminPreview: $("#promoAdminPreview"),
+  promoAdminStatus: $("#promoAdminStatus"),
   playerForm: $("#playerForm"),
   playerIdInput: $("#playerIdInput"),
   playerNameInput: $("#playerNameInput"),
@@ -182,7 +189,11 @@ const els = {
   scoreMvpInput: $("#scoreMvpInput"),
   scoreActiveInfo: $("#scoreActiveInfo"),
   scorePlayersList: $("#scorePlayersList"),
-  adminGameweeks: $("#adminGameweeks")
+  adminGameweeks: $("#adminGameweeks"),
+  promoModal: $("#promoModal"),
+  promoCloseBtn: $("#promoCloseBtn"),
+  promoImage: $("#promoImage"),
+  promoProgress: $("#promoProgress")
 };
 
 const FORMATIONS = generateFormations();
@@ -192,6 +203,21 @@ const POSITION_LABELS = {
   MED: "Medio",
   DEL: "Delantero"
 };
+const MUNDO_STATUS_META = {
+  available: { label: "Disponible" },
+  doubt: { label: "Duda" },
+  out: { label: "Baja" }
+};
+
+function playerAvailability(player) {
+  const rawStatus = player?.mundoStatus?.status;
+  const status = MUNDO_STATUS_META[rawStatus] ? rawStatus : "available";
+  return {
+    status,
+    label: MUNDO_STATUS_META[status].label,
+    note: String(player?.mundoStatus?.note || "").trim()
+  };
+}
 
 function generateFormations() {
   const formations = [];
@@ -417,6 +443,49 @@ async function api(path, options = {}) {
   }
 
   return data;
+}
+
+let promoCloseTimer = null;
+let promoPreviousFocus = null;
+let promoShownThisLoad = false;
+
+function closePromo() {
+  window.clearTimeout(promoCloseTimer);
+  promoCloseTimer = null;
+  els.promoModal?.classList.add("hidden");
+  document.body.classList.remove("promo-open");
+  promoPreviousFocus?.focus?.({ preventScroll: true });
+  promoPreviousFocus = null;
+}
+
+function showPromo(promo) {
+  if (!els.promoModal || !promo?.enabled || !promo.imageUrl) return;
+  const durationMs = Math.max(3000, Math.min(300000, Number(promo.durationSeconds || 15) * 1000));
+
+  promoPreviousFocus = document.activeElement;
+  els.promoImage.src = promo.imageUrl;
+  els.promoModal.classList.remove("hidden");
+  document.body.classList.add("promo-open");
+
+  els.promoProgress.style.animation = "none";
+  void els.promoProgress.offsetWidth;
+  els.promoProgress.style.animation = `promo-countdown ${durationMs}ms linear forwards`;
+  promoCloseTimer = window.setTimeout(closePromo, durationMs);
+  window.requestAnimationFrame(() => els.promoCloseBtn?.focus({ preventScroll: true }));
+}
+
+async function loadPromoCampaign() {
+  try {
+    const response = await fetch("/api/promo", { headers: { Accept: "application/json" } });
+    if (!response.ok) return;
+    const { promo } = await response.json();
+    if (!promo?.enabled || promoShownThisLoad) return;
+
+    promoShownThisLoad = true;
+    showPromo(promo);
+  } catch {
+    // La campaña nunca debe bloquear el acceso a la app.
+  }
 }
 
 function setAuthMode(mode) {
@@ -791,6 +860,7 @@ function renderPlayerCard(player, options = {}) {
   const attrs = options.market ? `type="button" data-player-detail="${player._id}"` : "";
 
   if (options.market) {
+    const availability = playerAvailability(player);
     return `
       <button class="player-card market-player-card sports-player-card" type="button" data-player-detail="${player._id}">
         <div class="sports-player-identity">
@@ -802,9 +872,10 @@ function renderPlayerCard(player, options = {}) {
           <small>${escapeHtml(player.club?.name || club)}</small>
           <strong>${escapeHtml(player.name)}</strong>
           <div class="sports-player-meta">
-            <span>${Number(player.totalPoints || 0)} pts</span>
-            <span>${Number(player.lineupUsage || 0)} usos</span>
-            <span>${valueEfficiency(player).toFixed(2)} pts/M</span>
+            <span class="market-player-status status-${availability.status}" title="${escapeHtml(availability.note || availability.label)}"><i aria-hidden="true"></i>${escapeHtml(availability.label)}</span>
+            <span class="market-player-points">${Number(player.totalPoints || 0)} pts</span>
+            <span class="market-player-usage">${Number(player.lineupUsage || 0)} usos</span>
+            <span class="market-player-efficiency">${valueEfficiency(player).toFixed(2)} pts/M</span>
           </div>
         </div>
         <div class="sports-player-value">
@@ -840,6 +911,7 @@ async function refreshCore() {
   state.activeGameweek = activeGameweek.gameweek;
   state.players = players.players;
   state.clubs = clubs.clubs;
+  state.playerStatsCache = {};
   await loadNewsPage({ reset: true });
   renderShell();
 }
@@ -1086,13 +1158,13 @@ function renderSportsPlayerDetail(data) {
     ? playedRows.reduce((sum, row) => sum + Number(row.points || 0), 0) / playedRows.length
     : 0;
   const nextMatch = rows
-    .filter((row) => row.match && ["draft", "live"].includes(row.status))
+    .filter((row) => row.match && !row.match.isScored && ["draft", "live"].includes(row.status))
     .sort((a, b) => Number(a.number) - Number(b.number))[0];
   const currentValue = Number(player.marketValue || 0);
   const previousValue = Number(player.previousMarketValue || currentValue - Number(player.marketValueChange || 0) || currentValue);
   const changePercent = previousValue ? (Number(player.marketValueChange || 0) / previousValue) * 100 : 0;
   const maxUsage = Math.max(...rows.map((row) => Number(row.usedBy || 0)), 1);
-  const statusLabel = { available: "Disponible", injured: "Lesionado", suspended: "Sancionado" }[player.status] || "Disponible";
+  const availability = playerAvailability(player);
 
   els.playerDetailTitle.textContent = "Ficha de jugador";
   els.playerDetailBody.innerHTML = `
@@ -1103,7 +1175,7 @@ function renderSportsPlayerDetail(data) {
       <div class="sports-profile-copy">
         <small>${escapeHtml(club)}</small>
         <h2>${escapeHtml(player.name)}</h2>
-        <span class="player-status-label status-${escapeHtml(player.status || "available")}">${escapeHtml(statusLabel)}</span>
+        <span class="player-status-label status-${availability.status}" title="${escapeHtml(availability.note || availability.label)}">${escapeHtml(availability.label)}</span>
       </div>
     </section>
     <nav class="player-detail-tabs" role="tablist" aria-label="Informacion del jugador">
@@ -1114,7 +1186,7 @@ function renderSportsPlayerDetail(data) {
       <button data-player-detail-tab="news" type="button">Noticias${data.relatedNews?.length ? `<span>${data.relatedNews.length}</span>` : ""}</button>
     </nav>
     <div class="player-detail-panels">
-      ${renderProfileSummaryTab({ player, club, data, average, nextMatch, statusLabel })}
+      ${renderProfileSummaryTab({ player, club, data, average, nextMatch, availability })}
       ${renderProfilePointsTab(rows)}
       ${renderProfileValueTab({ player, currentValue, previousValue, changePercent })}
       ${renderProfileUsageTab({ rows, total: data.summary.totalLineups, maxUsage })}
@@ -1123,7 +1195,7 @@ function renderSportsPlayerDetail(data) {
   `;
 }
 
-function renderProfileSummaryTab({ player, club, data, average, nextMatch, statusLabel }) {
+function renderProfileSummaryTab({ player, club, data, average, nextMatch, availability }) {
   return `
     <section class="player-detail-tab-panel active" data-player-detail-panel="summary">
       <div class="profile-summary-grid">
@@ -1141,14 +1213,19 @@ function renderProfileSummaryTab({ player, club, data, average, nextMatch, statu
             ${clubIdentity(nextMatch.match.awayClub, { fullName: true, className: "next-match-club" })}
           </div>
         </section>
-      ` : ""}
+      ` : `
+        <section class="profile-section">
+          <div class="profile-section-title"><h3>Proximo partido</h3><span>Calendario</span></div>
+          <div class="profile-next-empty">Sin partidos futuros programados.</div>
+        </section>
+      `}
       <section class="profile-section">
         <div class="profile-section-title"><h3>Informacion</h3></div>
         <div class="profile-info-list">
           <div><span>Club</span><strong>${escapeHtml(club)}</strong></div>
           <div><span>Posicion</span><strong>${escapeHtml(POSITION_META[player.position]?.label || player.position)}</strong></div>
           <div><span>Dorsal</span><strong>${player.shirtNumber ? `#${Number(player.shirtNumber)}` : "-"}</strong></div>
-          <div><span>Estado</span><strong>${escapeHtml(statusLabel)}</strong></div>
+          <div class="profile-status-info"><span>Estado</span><strong class="status-${availability.status}">${escapeHtml(availability.label)}</strong>${availability.note ? `<small>${escapeHtml(availability.note)}</small>` : ""}</div>
         </div>
       </section>
     </section>
@@ -2007,6 +2084,7 @@ function renderAdmin() {
   if (state.admin.settings) {
     els.initialBudgetInput.value = state.admin.settings.initialBudget || 0;
   }
+  renderPromoAdmin();
 
   els.adminSummary.innerHTML = Object.entries(summary)
     .map(
@@ -2096,6 +2174,30 @@ function renderAdmin() {
     : `<p class="hint">Todavia no hay backups.</p>`;
 
   els.adminGameweeks.innerHTML = state.admin.gameweeks.map(renderAdminGameweek).join("");
+}
+
+function updatePromoAdminStatus(enabled, hasImage) {
+  const ready = enabled && hasImage;
+  els.promoAdminStatus.textContent = enabled ? hasImage ? "Activo" : "Falta imagen" : "Desactivado";
+  els.promoAdminStatus.classList.toggle("active", ready);
+  els.promoAdminStatus.classList.toggle("inactive", !ready);
+}
+
+function updatePromoAdminPreview(imageUrl) {
+  els.promoAdminPreview.innerHTML = imageUrl
+    ? `<img src="${escapeHtml(imageUrl)}" alt="Vista previa del anuncio" />`
+    : `<p>Selecciona una imagen para la campaña.</p>`;
+}
+
+function renderPromoAdmin() {
+  const promo = state.admin.settings?.promo || {};
+  if (!els.promoForm) return;
+
+  const imageUrl = state.promoImageDataUrl || promo.imageUrl;
+  els.promoEnabledInput.checked = promo.enabled !== false;
+  els.promoDurationInput.value = Number(promo.durationSeconds || 15);
+  updatePromoAdminStatus(promo.enabled !== false, Boolean(imageUrl));
+  updatePromoAdminPreview(imageUrl);
 }
 
 function renderAdminNewsItem(item) {
@@ -2599,6 +2701,49 @@ function readClubBadgeFile(file) {
   });
 }
 
+function readPromoImageFile(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) return resolve("");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      return reject(new Error("La imagen del anuncio debe ser JPG, PNG o WEBP."));
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      return reject(new Error("La imagen del anuncio no puede superar 5 MB."));
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen del anuncio."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function savePromo(event) {
+  event.preventDefault();
+  const submitButton = els.promoForm.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
+
+  try {
+    const { message } = await api("/api/admin/promo", {
+      method: "PUT",
+      body: {
+        enabled: els.promoEnabledInput.checked,
+        durationSeconds: Number(els.promoDurationInput.value),
+        imageDataUrl: state.promoImageDataUrl,
+        imageFilename: els.promoImageInput.files[0]?.name || ""
+      }
+    });
+    state.promoImageDataUrl = "";
+    els.promoImageInput.value = "";
+    await loadAdmin();
+    showToast(message);
+  } catch (error) {
+    showToast(error.message, "error");
+  } finally {
+    submitButton.disabled = false;
+  }
+}
+
 async function saveNews(event) {
   event.preventDefault();
   const id = els.newsIdInput.value;
@@ -3012,6 +3157,10 @@ function bindEvents() {
     event.stopPropagation();
     toggleAccountMenu();
   });
+  els.promoCloseBtn?.addEventListener("click", closePromo);
+  els.promoModal?.addEventListener("click", (event) => {
+    if (event.target === els.promoModal) closePromo();
+  });
   els.logoutBtn.addEventListener("click", () => {
     closeAccountMenu();
     setSession(null, null);
@@ -3022,6 +3171,10 @@ function bindEvents() {
     if (!event.target.closest("#accountMenuWrap")) closeAccountMenu();
   });
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !els.promoModal?.classList.contains("hidden")) {
+      closePromo();
+      return;
+    }
     if (event.key === "Escape") closeAccountMenu();
   });
 
@@ -3142,6 +3295,27 @@ function bindEvents() {
   els.adminRefreshBtn.addEventListener("click", loadAdmin);
   els.resetLeagueBtn.addEventListener("click", resetLeagueFromAdmin);
   els.settingsForm.addEventListener("submit", saveSettings);
+  els.promoForm.addEventListener("submit", savePromo);
+  els.promoEnabledInput.addEventListener("change", () => {
+    if (state.admin.settings?.promo) state.admin.settings.promo.enabled = els.promoEnabledInput.checked;
+    const hasImage = Boolean(state.promoImageDataUrl || state.admin.settings?.promo?.imageUrl);
+    updatePromoAdminStatus(els.promoEnabledInput.checked, hasImage);
+  });
+  els.promoImageInput.addEventListener("change", async () => {
+    try {
+      state.promoImageDataUrl = await readPromoImageFile(els.promoImageInput.files[0]);
+      const imageUrl = state.promoImageDataUrl || state.admin.settings?.promo?.imageUrl;
+      updatePromoAdminPreview(imageUrl);
+      updatePromoAdminStatus(els.promoEnabledInput.checked, Boolean(imageUrl));
+    } catch (error) {
+      state.promoImageDataUrl = "";
+      els.promoImageInput.value = "";
+      const imageUrl = state.admin.settings?.promo?.imageUrl;
+      updatePromoAdminPreview(imageUrl);
+      updatePromoAdminStatus(els.promoEnabledInput.checked, Boolean(imageUrl));
+      showToast(error.message, "error");
+    }
+  });
   els.playerForm.addEventListener("submit", savePlayer);
   els.playerResetBtn.addEventListener("click", resetPlayerForm);
   els.teamForm.addEventListener("submit", saveTeam);
@@ -3225,6 +3399,7 @@ async function bootstrap() {
   bindEvents();
   setupNewsInfiniteScroll();
   setAuthMode("login");
+  void loadPromoCampaign();
 
   if (!state.token) {
     renderShell();

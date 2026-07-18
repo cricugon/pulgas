@@ -2352,6 +2352,35 @@ button.leader-row:hover {
   font-weight: 800;
 }
 
+.sports-player-meta .market-player-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.market-player-status i {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.sports-player-meta .market-player-status.status-available {
+  color: var(--success);
+  background: rgba(55, 227, 143, 0.1);
+}
+
+.sports-player-meta .market-player-status.status-doubt {
+  color: var(--warning);
+  background: rgba(255, 191, 71, 0.1);
+}
+
+.sports-player-meta .market-player-status.status-out {
+  color: var(--danger);
+  background: rgba(255, 77, 109, 0.1);
+}
+
 .sports-player-value {
   display: grid;
   min-width: 122px;
@@ -2513,9 +2542,15 @@ button.leader-row:hover {
 }
 
 .player-status-label.status-injured,
-.player-status-label.status-suspended {
+.player-status-label.status-suspended,
+.player-status-label.status-out {
   color: var(--danger);
   background: rgba(255, 77, 109, 0.1);
+}
+
+.player-status-label.status-doubt {
+  color: var(--warning);
+  background: rgba(255, 191, 71, 0.1);
 }
 
 .player-detail-tabs {
@@ -2673,6 +2708,19 @@ button.leader-row:hover {
   font-size: 0.64rem;
 }
 
+.profile-next-empty {
+  display: grid;
+  place-items: center;
+  min-height: 76px;
+  padding: 14px;
+  border: 1px dashed var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  background: rgba(12, 23, 41, 0.58);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
 .profile-info-list,
 .value-comparison {
   display: grid;
@@ -2696,6 +2744,24 @@ button.leader-row:hover {
 .value-comparison small {
   color: var(--muted);
   font-size: 0.66rem;
+}
+
+.profile-info-list .profile-status-info small {
+  color: var(--muted);
+  font-size: 0.64rem;
+  line-height: 1.35;
+}
+
+.profile-status-info strong.status-available {
+  color: var(--success);
+}
+
+.profile-status-info strong.status-doubt {
+  color: var(--warning);
+}
+
+.profile-status-info strong.status-out {
+  color: var(--danger);
 }
 
 .sports-stats-table {
@@ -2995,7 +3061,7 @@ button.leader-row:hover {
     align-self: center;
   }
 
-  .sports-player-meta span:last-child {
+  .sports-player-meta .market-player-efficiency {
     display: none;
   }
 
@@ -3054,7 +3120,7 @@ button.leader-row:hover {
     width: 50px;
   }
 
-  .sports-player-meta span:nth-child(2) {
+  .sports-player-meta .market-player-usage {
     display: none;
   }
 
@@ -3142,5 +3208,196 @@ button.leader-row:hover {
 
   .admin-club-row .row-actions {
     grid-column: 1 / -1;
+  }
+}
+
+/* Mundo Las Pulgas opening campaign */
+body.promo-open {
+  overflow: hidden;
+}
+
+.promo-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  width: 100vw;
+  max-width: 100vw;
+  padding: 12px;
+  background: rgba(2, 7, 18, 0.86);
+  backdrop-filter: blur(18px);
+}
+
+.promo-dialog {
+  position: relative;
+  width: min(760px, 100%);
+  min-width: 0;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow: hidden;
+  border: 1px solid rgba(68, 224, 255, 0.34);
+  border-radius: 8px;
+  background: #071126;
+  box-shadow: 0 30px 100px rgba(0, 0, 0, 0.72), 0 0 45px rgba(47, 124, 255, 0.16);
+}
+
+.promo-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(2, 8, 21, 0.9);
+  font-size: 1rem;
+  font-weight: 950;
+}
+
+.promo-close:hover,
+.promo-close:focus-visible {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.promo-media {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: min(88dvh, 900px);
+  overflow: hidden;
+  background: #030916;
+}
+
+.promo-media > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.promo-progress-track {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3;
+  height: 5px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.promo-progress-track span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--cyan);
+  transform-origin: left center;
+}
+
+@keyframes promo-countdown {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+.promo-admin-layout {
+  display: grid;
+  gap: 14px;
+}
+
+.promo-enabled-control {
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid rgba(68, 224, 255, 0.24);
+  border-radius: 6px;
+  background: rgba(68, 224, 255, 0.06);
+  font-weight: 850;
+}
+
+.promo-settings-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 210px);
+  align-items: end;
+  gap: 10px;
+}
+
+.promo-image-upload {
+  display: grid;
+  gap: 7px;
+}
+
+.promo-image-upload small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.promo-admin-preview {
+  position: relative;
+  width: min(320px, 100%);
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #030916;
+}
+
+.promo-admin-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.promo-admin-preview p {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  margin: 0;
+  padding: 20px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+#promoAdminStatus.active {
+  color: #06160f;
+  border-color: var(--success);
+  background: var(--success);
+}
+
+#promoAdminStatus.inactive {
+  color: #ffd6de;
+  border-color: rgba(255, 77, 109, 0.4);
+  background: rgba(255, 77, 109, 0.12);
+}
+
+@media (min-width: 760px) {
+  .promo-admin-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+    align-items: start;
+  }
+}
+
+@media (max-width: 390px) {
+  .promo-modal {
+    padding: 7px;
+  }
+
+  .promo-dialog {
+    max-height: calc(100dvh - 14px);
+    max-width: calc(100vw - 14px);
+  }
+
+  .promo-media {
+    height: calc(100dvh - 14px);
+  }
+
+  .promo-settings-row {
+    grid-template-columns: 1fr;
   }
 }

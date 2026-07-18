@@ -393,6 +393,7 @@
               <button class="admin-tab" data-admin-section="teams" type="button">Equipos</button>
               <button class="admin-tab" data-admin-section="clubs" type="button">Clubes</button>
               <button class="admin-tab" data-admin-section="news" type="button">Noticias</button>
+              <button class="admin-tab" data-admin-section="promo" type="button">Anuncio</button>
               <button class="admin-tab" data-admin-section="backups" type="button">Backups</button>
             </nav>
             <section class="admin-grid">
@@ -409,6 +410,41 @@
                   <button class="primary-button" type="submit">Guardar presupuesto inicial</button>
                 </form>
                 <div id="adminSummary" class="metric-grid mini"></div>
+              </article>
+
+              <article class="panel admin-section-panel" data-admin-section-panel="promo">
+                <div class="panel-header">
+                  <div>
+                    <h3>Anuncio de Mundo Las Pulgas</h3>
+                    <p>Controla la campaña que aparece al abrir la app y sustituye su imagen cuando lo necesites.</p>
+                  </div>
+                  <span id="promoAdminStatus" class="pill">Cargando</span>
+                </div>
+                <form id="promoForm" class="admin-form promo-admin-form">
+                  <div class="promo-settings-row">
+                    <label class="inline-check promo-enabled-control">
+                      <input id="promoEnabledInput" type="checkbox" />
+                      Mostrar el anuncio al abrir la app
+                    </label>
+                    <label>
+                      Duracion en segundos
+                      <input id="promoDurationInput" type="number" min="3" max="300" step="1" required value="15" />
+                    </label>
+                  </div>
+                  <div class="promo-admin-layout">
+                    <div>
+                      <label class="promo-image-upload">
+                        Imagen del anuncio
+                        <input id="promoImageInput" type="file" accept="image/jpeg,image/png,image/webp" />
+                        <small>JPG, PNG o WEBP. Maximo 5 MB. El anuncio mostrara esta imagen completa, sin textos superpuestos.</small>
+                      </label>
+                    </div>
+                    <div id="promoAdminPreview" class="promo-admin-preview">
+                      <p>Selecciona una imagen para la campaña.</p>
+                    </div>
+                  </div>
+                  <button class="primary-button" type="submit">Guardar configuracion del anuncio</button>
+                </form>
               </article>
 
               <article class="panel admin-section-panel" data-admin-section-panel="players">
@@ -639,6 +675,16 @@
             </div>
           </div>
         </section>
+
+        <div id="promoModal" class="promo-modal hidden" role="dialog" aria-modal="true" aria-label="Anuncio de Mundo Las Pulgas">
+          <article class="promo-dialog">
+            <button id="promoCloseBtn" class="promo-close" type="button" aria-label="Cerrar anuncio">x</button>
+            <a id="promoImageLink" class="promo-media" href="/mundolaspulgas" aria-label="Abrir Mundo Las Pulgas">
+              <img id="promoImage" alt="Anuncio de Mundo Las Pulgas" />
+            </a>
+            <div class="promo-progress-track" aria-hidden="true"><span id="promoProgress"></span></div>
+          </article>
+        </div>
       </main>
     </div>
 

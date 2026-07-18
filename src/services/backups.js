@@ -11,7 +11,7 @@ import { Player } from "../models/Player.js";
 import { Settings, getLeagueSettings } from "../models/Settings.js";
 import { User } from "../models/User.js";
 
-const BACKUP_SCHEMA_VERSION = 4;
+const BACKUP_SCHEMA_VERSION = 5;
 const PRESERVED_USER_ACCOUNT_FIELDS = new Set(["_id", "email", "passwordHash", "createdAt", "updatedAt", "__v"]);
 const BACKUP_COLLECTIONS = [
   { key: "users", Model: User },
@@ -19,7 +19,7 @@ const BACKUP_COLLECTIONS = [
   { key: "players", Model: Player },
   { key: "gameweeks", Model: Gameweek },
   { key: "lineups", Model: Lineup },
-  { key: "settings", Model: Settings },
+  { key: "settings", Model: Settings, select: "+promoImageData" },
   { key: "news", Model: NewsItem },
   { key: "mundoArticles", Model: MundoArticle },
   { key: "mundoEvents", Model: MundoEvent },

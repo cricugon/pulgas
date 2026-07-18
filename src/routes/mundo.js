@@ -12,6 +12,7 @@ import { MundoMedia } from "../models/MundoMedia.js";
 import { MundoPlayerStatus } from "../models/MundoPlayerStatus.js";
 import { MundoPrediction } from "../models/MundoPrediction.js";
 import { Player } from "../models/Player.js";
+import { buildFinalMatchLineup, hasOfficialMatchScores } from "../services/mundoFinalLineup.js";
 
 export const mundoRouter = express.Router();
 
@@ -176,7 +177,8 @@ function serializeGameweek(gameweek, predictionKeys = new Set()) {
     ...gameweek,
     matches: (gameweek.matches || []).map((match) => ({
       ...match,
-      hasPrediction: predictionKeys.has(`${gameweek._id}:${match._id}`)
+      hasPrediction: predictionKeys.has(`${gameweek._id}:${match._id}`),
+      isScored: hasOfficialMatchScores(match)
     }))
   };
 }
@@ -384,9 +386,20 @@ mundoRouter.get("/gameweeks", asyncRoute(async (req, res) => {
 }));
 
 mundoRouter.get("/predictions/:gameweekId/:matchId", asyncRoute(async (req, res) => {
-  const gameweek = await Gameweek.findById(req.params.gameweekId).populate("matches.homeClub matches.awayClub");
+  const gameweek = await Gameweek.findById(req.params.gameweekId).populate(
+    "matches.homeClub matches.awayClub matches.playerScores.player"
+  );
   const match = gameweek && findMatch(gameweek, req.params.matchId);
   if (!gameweek || !match) return res.status(404).json({ message: "Partido no encontrado." });
+
+  if (hasOfficialMatchScores(match)) {
+    const finalLineup = buildFinalMatchLineup(match);
+    if (!finalLineup) {
+      return res.status(409).json({ message: "No hay suficientes jugadores puntuados para formar un siete valido por club." });
+    }
+    return res.json({ gameweek, match, prediction: finalLineup });
+  }
+
   const prediction = await populatedPrediction({
     gameweek: gameweek._id,
     matchId: match._id,

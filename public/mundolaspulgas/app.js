@@ -116,18 +116,21 @@ function clubName(club, fallback) {
 function matchCard(gameweek, match) {
   const home = clubName(match.homeClub, "Local");
   const away = clubName(match.awayClub, "Visitante");
+  const isFinal = Boolean(match.isScored);
+  const canOpen = isFinal || match.hasPrediction;
   const center = match.homeScore !== null && match.homeScore !== undefined
     ? `${match.homeScore} - ${match.awayScore}`
     : formatDate(match.kickoff, true);
+  const detail = isFinal ? "Finalizado - Ver mejor siete" : match.hasPrediction ? "Prediccion disponible" : "Pendiente de prediccion";
   const content = `
     <span class="match-club">${escapeHtml(home)}</span>
     <span class="match-center">
       <strong>${escapeHtml(center)}</strong>
-      <small class="${match.hasPrediction ? "prediction-flag" : ""}">${match.hasPrediction ? "Prediccion disponible" : "Pendiente de prediccion"}</small>
+      <small class="${canOpen ? "prediction-flag" : ""}">${detail}</small>
     </span>
     <span class="match-club">${escapeHtml(away)}</span>
   `;
-  return match.hasPrediction
+  return canOpen
     ? `<a class="match-link" href="/mundolaspulgas/partidos/${gameweek._id}/${match._id}">${content}</a>`
     : `<div class="match-link">${content}</div>`;
 }
@@ -248,7 +251,7 @@ async function renderMatches() {
   const { gameweeks } = await api("/api/mundo/gameweeks?history=1");
   app.innerHTML = `
     <div class="page-heading">
-      <div><p class="eyebrow">Agenda y analisis</p><h1>Partidos</h1><p>Consulta cada jornada y abre los partidos que ya tienen alineaciones probables publicadas.</p></div>
+      <div><p class="eyebrow">Agenda y analisis</p><h1>Partidos</h1><p>Consulta las predicciones antes de jugar y el mejor siete oficial cuando se publiquen las puntuaciones.</p></div>
     </div>
     ${scheduleMarkup(gameweeks)}
   `;
@@ -259,32 +262,35 @@ function statusBadge(statusData = {}) {
   return `<span class="status-label status-${status}" title="${escapeHtml(statusData.note || STATUS_LABELS[status])}"><span class="status-cross">+</span>${escapeHtml(STATUS_LABELS[status])}</span>`;
 }
 
-function predictionPlayer(pick) {
+function predictionPlayer(pick, finalMode = false) {
   const starter = pick.starter || {};
   const status = pick.playerStatus?.status || "available";
+  const points = Number(pick.points || 0);
+  const pointsClass = points > 0 ? "positive" : points < 0 ? "negative" : "neutral";
   return `
     <div class="pitch-player">
       <div class="pitch-player-main">
         <span aria-hidden="true">♟</span>
-        <span class="pitch-probability">${Number(pick.probability || 0)}%</span>
-        <span class="pitch-status status-${status}" title="${escapeHtml(STATUS_LABELS[status] || "Disponible")}">+</span>
+        ${finalMode
+          ? `<span class="pitch-points ${pointsClass}">${points > 0 ? "+" : ""}${points} pts</span>`
+          : `<span class="pitch-probability">${Number(pick.probability || 0)}%</span><span class="pitch-status status-${status}" title="${escapeHtml(STATUS_LABELS[status] || "Disponible")}">+</span>`}
       </div>
       <span class="pitch-name">${escapeHtml(starter.name || "Jugador")}</span>
-      ${pick.challenger ? `<span class="pitch-challenger">Disputa: ${escapeHtml(pick.challenger.name)}</span>` : ""}
+      ${!finalMode && pick.challenger ? `<span class="pitch-challenger">Disputa: ${escapeHtml(pick.challenger.name)}</span>` : ""}
     </div>
   `;
 }
 
-function teamPitch(team) {
+function teamPitch(team, finalMode = false) {
   const rows = ["DEL", "MED", "DEF", "POR"];
   return `
-    <section class="prediction-team ${team.side === state.predictionTeam ? "active" : ""}" data-prediction-team="${team.side}">
+    <section class="prediction-team ${finalMode ? "final-lineup" : ""} ${team.side === state.predictionTeam ? "active" : ""}" data-prediction-team="${team.side}">
       <div class="prediction-team-header">
         <h2>${escapeHtml(team.club?.name || "Club")}</h2>
-        <span class="status-pill">${escapeHtml(team.formation)}</span>
+        <div class="lineup-summary">${finalMode ? `<strong>${Number(team.totalPoints || 0)} pts</strong>` : ""}<span class="status-pill">${escapeHtml(team.formation)}</span></div>
       </div>
       <div class="team-pitch">
-        ${rows.map((position) => `<div class="pitch-row">${team.picks.filter((pick) => pick.position === position).map(predictionPlayer).join("")}</div>`).join("")}
+        ${rows.map((position) => `<div class="pitch-row">${team.picks.filter((pick) => pick.position === position).map((pick) => predictionPlayer(pick, finalMode)).join("")}</div>`).join("")}
       </div>
     </section>
   `;
@@ -295,22 +301,25 @@ async function renderPrediction(gameweekId, matchId) {
   loading();
   const { gameweek, match, prediction } = await api(`/api/mundo/predictions/${gameweekId}/${matchId}`);
   const teams = [...(prediction.teams || [])].sort((a, b) => a.side === "home" ? -1 : b.side === "home" ? 1 : 0);
+  const finalMode = prediction.mode === "final";
   const home = clubName(match.homeClub, "Local");
   const away = clubName(match.awayClub, "Visitante");
+  const center = finalMode ? `${match.homeScore} - ${match.awayScore}` : "VS";
   document.title = `${home} - ${away} | Mundo Las Pulgas`;
   app.innerHTML = `
     <section class="match-hero">
       <div class="match-hero-content">
-        <p class="eyebrow">${escapeHtml(gameweek.name)} · Alineaciones probables</p>
-        <div class="versus"><h1>${escapeHtml(home)}</h1><strong>VS</strong><h1>${escapeHtml(away)}</h1></div>
-        <p class="kickoff-line">${formatDate(match.kickoff, true)} · Actualizado ${formatDate(prediction.updatedAt, true)}</p>
+        ${finalMode ? `<span class="finalized-badge">Finalizado</span>` : ""}
+        <p class="eyebrow">${escapeHtml(gameweek.name)} · ${finalMode ? "Mejor siete del partido" : "Alineaciones probables"}</p>
+        <div class="versus ${finalMode ? "final-score" : ""}"><h1>${escapeHtml(home)}</h1><strong>${escapeHtml(center)}</strong><h1>${escapeHtml(away)}</h1></div>
+        <p class="kickoff-line">${formatDate(match.kickoff, true)} · ${finalMode ? "Resultado y puntuaciones oficiales" : `Actualizado ${formatDate(prediction.updatedAt, true)}`}</p>
       </div>
     </section>
     <a class="back-button" href="/mundolaspulgas/partidos">← Todos los partidos</a>
     <div class="prediction-tabs" role="tablist">
       ${teams.map((team) => `<button class="tab-button ${team.side === state.predictionTeam ? "active" : ""}" data-team-tab="${team.side}" type="button">${escapeHtml(team.club?.shortName || team.club?.name)}</button>`).join("")}
     </div>
-    <div class="prediction-grid">${teams.map(teamPitch).join("")}</div>
+    <div class="prediction-grid">${teams.map((team) => teamPitch(team, finalMode)).join("")}</div>
   `;
   document.querySelectorAll("[data-team-tab]").forEach((button) => {
     button.addEventListener("click", () => {

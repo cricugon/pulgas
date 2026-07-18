@@ -22,6 +22,7 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
 app.use("/api/mundo/admin/articles", express.json({ limit: "8mb" }));
 app.use("/api/admin/clubs", express.json({ limit: "4mb" }));
+app.use("/api/admin/promo", express.json({ limit: "8mb" }));
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
 

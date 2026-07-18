@@ -29,6 +29,8 @@ adminRouter.use(requireAuth, requireAdmin);
 
 const CLUB_BADGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const CLUB_BADGE_MAX_BYTES = 2 * 1024 * 1024;
+const PROMO_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const PROMO_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 function parseClubBadgeDataUrl(value) {
   if (!value) return null;
@@ -43,6 +45,31 @@ function parseClubBadgeDataUrl(value) {
   }
 
   return { data, contentType: match[1].toLowerCase() };
+}
+
+function parsePromoImageDataUrl(value) {
+  if (!value) return null;
+  const match = String(value).match(/^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i);
+  if (!match || !PROMO_IMAGE_TYPES.has(match[1].toLowerCase())) {
+    throw new Error("La imagen del anuncio debe ser JPG, PNG o WEBP.");
+  }
+
+  const data = Buffer.from(match[2], "base64");
+  if (!data.length || data.length > PROMO_IMAGE_MAX_BYTES) {
+    throw new Error("La imagen del anuncio no puede superar 5 MB.");
+  }
+
+  return { data, contentType: match[1].toLowerCase() };
+}
+
+function serializePromoSettings(settings) {
+  const hasCustomImage = Boolean(settings?.promoImageContentType && settings?.promoImageUpdatedAt);
+  const imageVersion = settings?.promoImageUpdatedAt?.getTime?.();
+  return {
+    enabled: settings?.promoEnabled !== false,
+    durationSeconds: Number(settings?.promoDurationSeconds || 15),
+    imageUrl: hasCustomImage ? `/api/promo/image?v=${imageVersion}` : ""
+  };
 }
 
 function formatEuro(value = 0) {
@@ -177,7 +204,12 @@ adminRouter.get("/summary", async (_req, res) => {
 
 adminRouter.get("/settings", async (_req, res) => {
   const settings = await getLeagueSettings();
-  res.json({ settings });
+  res.json({
+    settings: {
+      initialBudget: settings.initialBudget,
+      promo: serializePromoSettings(settings)
+    }
+  });
 });
 
 adminRouter.put("/settings", async (req, res) => {
@@ -191,7 +223,50 @@ adminRouter.put("/settings", async (req, res) => {
   settings.initialBudget = initialBudget;
   await settings.save();
 
-  res.json({ message: "Configuracion actualizada.", settings });
+  res.json({
+    message: "Configuracion actualizada.",
+    settings: {
+      initialBudget: settings.initialBudget,
+      promo: serializePromoSettings(settings)
+    }
+  });
+});
+
+adminRouter.put("/promo", async (req, res) => {
+  try {
+    const image = parsePromoImageDataUrl(req.body.imageDataUrl);
+    const durationSeconds = Number(req.body.durationSeconds);
+    if (!Number.isInteger(durationSeconds) || durationSeconds < 3 || durationSeconds > 300) {
+      throw new Error("La duracion del anuncio debe estar entre 3 y 300 segundos.");
+    }
+
+    const settings = await getLeagueSettings();
+    const enabled = Boolean(req.body.enabled);
+    const hasStoredImage = Boolean(settings.promoImageContentType && settings.promoImageUpdatedAt);
+    if (enabled && !image && !hasStoredImage) {
+      throw new Error("Sube una imagen antes de activar el anuncio.");
+    }
+
+    settings.promoEnabled = enabled;
+    settings.promoDurationSeconds = durationSeconds;
+
+    if (image) {
+      settings.promoImageData = image.data;
+      settings.promoImageContentType = image.contentType;
+      settings.promoImageFilename = String(req.body.imageFilename || "").trim();
+      settings.promoImageUpdatedAt = new Date();
+    }
+
+    settings.promoUpdatedAt = new Date();
+    await settings.save();
+
+    res.json({
+      message: settings.promoEnabled ? "Anuncio activado y actualizado." : "Anuncio desactivado.",
+      promo: serializePromoSettings(settings)
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message || "No se pudo actualizar el anuncio." });
+  }
 });
 
 function newsPayload(req, existingNews = null) {

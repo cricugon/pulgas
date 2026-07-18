@@ -17,13 +17,25 @@
             <small>Fantasy futbol 7</small>
           </span>
         </button>
-        <button id="logoutBtn" class="icon-button hidden" title="Cerrar sesion" aria-label="Cerrar sesion">⎋</button>
         <button id="profileTopBtn" class="icon-button profile-top-button hidden" data-view="profile" title="Perfil" aria-label="Perfil">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z"></path>
             <path d="M4 21a8 8 0 0 1 16 0"></path>
           </svg>
         </button>
+        <div id="accountMenuWrap" class="account-menu-wrap hidden">
+          <button id="accountMenuBtn" class="icon-button account-menu-button" type="button" aria-label="Abrir menu de cuenta" aria-haspopup="menu" aria-expanded="false">&#8942;</button>
+          <div id="accountMenu" class="account-menu hidden" role="menu">
+            <a href="/mundolaspulgas" role="menuitem">
+              <span class="account-menu-icon" aria-hidden="true">M</span>
+              <span><strong>Mundo Las Pulgas</strong><small>Noticias y predicciones</small></span>
+            </a>
+            <button id="logoutBtn" type="button" role="menuitem">
+              <span class="account-menu-icon" aria-hidden="true">S</span>
+              <span><strong>Cerrar sesion</strong><small>Salir de tu cuenta</small></span>
+            </button>
+          </div>
+        </div>
       </header>
 
       <main>
@@ -591,7 +603,7 @@
           </div>
           <div id="playerDetailModal" class="admin-modal hidden" role="dialog" aria-modal="true" aria-labelledby="playerDetailTitle">
             <div class="admin-modal-card player-detail-modal">
-              <div class="panel-header">
+              <div class="panel-header player-detail-modal-header">
                 <h3 id="playerDetailTitle">Jugador</h3>
                 <button class="icon-button" data-close-player-detail type="button" aria-label="Cerrar">x</button>
               </div>

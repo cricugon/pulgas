@@ -53,6 +53,9 @@ const els = {
   emailInput: $("#emailInput"),
   passwordInput: $("#passwordInput"),
   teamNameInput: $("#teamNameInput"),
+  accountMenuWrap: $("#accountMenuWrap"),
+  accountMenuBtn: $("#accountMenuBtn"),
+  accountMenu: $("#accountMenu"),
   profileTopBtn: $("#profileTopBtn"),
   logoutBtn: $("#logoutBtn"),
   adminTab: $("#adminTab"),
@@ -320,6 +323,28 @@ function initials(name = "") {
     .toUpperCase();
 }
 
+const POSITION_META = {
+  POR: { label: "Portero", short: "POR" },
+  DEF: { label: "Defensa", short: "DEF" },
+  MED: { label: "Medio", short: "MED" },
+  DEL: { label: "Delantero", short: "DEL" }
+};
+
+function positionBadge(position, { compact = false } = {}) {
+  const meta = POSITION_META[position] || { label: position || "Jugador", short: position || "-" };
+  return `<span class="position-badge position-${escapeHtml(position || "other")}" title="${escapeHtml(meta.label)}">${escapeHtml(compact ? meta.short : meta.label)}</span>`;
+}
+
+function clubBadge(club, className = "club-badge") {
+  const shortName = club?.shortName || club?.name || "FA";
+  const color = club?.primaryColor || "#2f7cff";
+  return `<span class="${className}" style="--club-color:${escapeHtml(color)}">${escapeHtml(String(shortName).slice(0, 5))}</span>`;
+}
+
+function stableMarketBadge(player) {
+  return marketChangeBadge(player) || `<span class="market-change stable-change">Sin cambios</span>`;
+}
+
 function marketChangeBadge(player) {
   const change = Number(player?.marketValueChange || 0);
   if (!change) return "";
@@ -405,14 +430,28 @@ function setSession(token, user) {
   renderShell();
 }
 
+function closeAccountMenu() {
+  els.accountMenu?.classList.add("hidden");
+  els.accountMenuBtn?.setAttribute("aria-expanded", "false");
+}
+
+function toggleAccountMenu() {
+  const willOpen = els.accountMenu?.classList.contains("hidden");
+  els.accountMenu?.classList.toggle("hidden", !willOpen);
+  els.accountMenuBtn?.setAttribute("aria-expanded", String(willOpen));
+}
+
 function renderShell() {
   const isLoggedIn = Boolean(state.token && state.user);
   els.authView.classList.toggle("hidden", isLoggedIn);
   els.appView.classList.toggle("hidden", !isLoggedIn);
-  els.logoutBtn.classList.toggle("hidden", !isLoggedIn);
+  els.accountMenuWrap?.classList.toggle("hidden", !isLoggedIn);
   els.profileTopBtn?.classList.toggle("hidden", !isLoggedIn || state.user?.role === "admin");
 
-  if (!isLoggedIn) return;
+  if (!isLoggedIn) {
+    closeAccountMenu();
+    return;
+  }
 
   const isAdmin = state.user.role === "admin";
   ["dashboard", "market", "lineup", "leaderboard", "profile"].forEach((view) => {
@@ -694,19 +733,41 @@ function renderPlayerCard(player, options = {}) {
   const club = player.club?.shortName || player.club?.name || "FA";
   const tag = options.market ? "button" : "article";
   const attrs = options.market ? `type="button" data-player-detail="${player._id}"` : "";
-  const marketMeta = options.market
-    ? `<small class="market-extra">${Number(player.lineupUsage || 0)} usos · ${valueEfficiency(player).toFixed(2)} pts/M ${marketChangeBadge(player)}</small>`
-    : "";
+
+  if (options.market) {
+    return `
+      <button class="player-card market-player-card sports-player-card" type="button" data-player-detail="${player._id}">
+        <div class="sports-player-identity">
+          ${clubBadge(player.club)}
+          ${positionBadge(player.position, { compact: true })}
+        </div>
+        <div class="sports-player-avatar" aria-hidden="true"><span></span></div>
+        <div class="player-main sports-player-main">
+          <small>${escapeHtml(player.club?.name || club)}</small>
+          <strong>${escapeHtml(player.name)}</strong>
+          <div class="sports-player-meta">
+            <span>${Number(player.totalPoints || 0)} pts</span>
+            <span>${Number(player.lineupUsage || 0)} usos</span>
+            <span>${valueEfficiency(player).toFixed(2)} pts/M</span>
+          </div>
+        </div>
+        <div class="sports-player-value">
+          <small>Valor</small>
+          <strong>${formatEuro(player.marketValue)}</strong>
+          ${stableMarketBadge(player)}
+        </div>
+        <span class="sports-player-chevron" aria-hidden="true">›</span>
+      </button>
+    `;
+  }
 
   return `
-    <${tag} class="player-card ${options.market ? "market-player-card" : ""}" ${attrs}>
+    <${tag} class="player-card" ${attrs}>
       <div class="avatar">${initials(player.name)}</div>
       <div class="player-main">
         <strong>${escapeHtml(player.name)}</strong>
-        ${marketMeta}
         <small>${escapeHtml(player.position)} · ${escapeHtml(club)} · ${formatEuro(player.marketValue)} · ${player.totalPoints || 0} pts</small>
       </div>
-      ${options.market ? `<span class="pill">Ficha</span>` : ""}
     </${tag}>
   `;
 }
@@ -905,8 +966,9 @@ async function openPlayerDetail(playerId) {
   try {
     const data = state.playerStatsCache[playerId] || await api(`/api/players/${playerId}/stats`);
     state.playerStatsCache[playerId] = data;
-    renderPlayerDetail(data);
+    renderSportsPlayerDetail(data);
     els.playerDetailModal.classList.remove("hidden");
+    document.body.classList.add("player-detail-open");
   } catch (error) {
     showToast(error.message, "error");
   }
@@ -956,6 +1018,166 @@ function renderPlayerDetail(data) {
         .join("") || `<p class="hint">Sin jornadas registradas.</p>`}
     </div>
   `;
+}
+
+function renderSportsPlayerDetail(data) {
+  const player = data.player;
+  const club = player.club?.name || "Sin equipo";
+  const rows = data.byGameweek || [];
+  const playedRows = rows.filter((row) => row.score?.played);
+  const average = playedRows.length
+    ? playedRows.reduce((sum, row) => sum + Number(row.points || 0), 0) / playedRows.length
+    : 0;
+  const nextMatch = rows
+    .filter((row) => row.match && ["draft", "live"].includes(row.status))
+    .sort((a, b) => Number(a.number) - Number(b.number))[0];
+  const currentValue = Number(player.marketValue || 0);
+  const previousValue = Number(player.previousMarketValue || currentValue - Number(player.marketValueChange || 0) || currentValue);
+  const changePercent = previousValue ? (Number(player.marketValueChange || 0) / previousValue) * 100 : 0;
+  const maxUsage = Math.max(...rows.map((row) => Number(row.usedBy || 0)), 1);
+  const statusLabel = { available: "Disponible", injured: "Lesionado", suspended: "Sancionado" }[player.status] || "Disponible";
+
+  els.playerDetailTitle.textContent = "Ficha de jugador";
+  els.playerDetailBody.innerHTML = `
+    <section class="sports-profile-hero" style="--club-color:${escapeHtml(player.club?.primaryColor || "#2f7cff")}">
+      <div class="sports-profile-club">${clubBadge(player.club, "profile-club-badge")}</div>
+      <div class="sports-profile-silhouette" aria-hidden="true"><span></span></div>
+      <div class="sports-profile-position">${positionBadge(player.position, { compact: true })}</div>
+      <div class="sports-profile-copy">
+        <small>${escapeHtml(club)}</small>
+        <h2>${escapeHtml(player.name)}</h2>
+        <span class="player-status-label status-${escapeHtml(player.status || "available")}">${escapeHtml(statusLabel)}</span>
+      </div>
+    </section>
+    <nav class="player-detail-tabs" role="tablist" aria-label="Informacion del jugador">
+      <button class="active" data-player-detail-tab="summary" type="button">Resumen</button>
+      <button data-player-detail-tab="points" type="button">Puntos</button>
+      <button data-player-detail-tab="value" type="button">Valor</button>
+      <button data-player-detail-tab="usage" type="button">Uso</button>
+      <button data-player-detail-tab="news" type="button">Noticias${data.relatedNews?.length ? `<span>${data.relatedNews.length}</span>` : ""}</button>
+    </nav>
+    <div class="player-detail-panels">
+      ${renderProfileSummaryTab({ player, club, data, average, nextMatch, statusLabel })}
+      ${renderProfilePointsTab(rows)}
+      ${renderProfileValueTab({ player, currentValue, previousValue, changePercent })}
+      ${renderProfileUsageTab({ rows, total: data.summary.totalLineups, maxUsage })}
+      ${renderProfileNewsTab(data.relatedNews || [])}
+    </div>
+  `;
+}
+
+function renderProfileSummaryTab({ player, club, data, average, nextMatch, statusLabel }) {
+  return `
+    <section class="player-detail-tab-panel active" data-player-detail-panel="summary">
+      <div class="profile-summary-grid">
+        <article class="profile-stat primary"><small>Puntos totales</small><strong>${Number(data.summary.totalPoints || 0)}</strong><span>${average.toFixed(1)} de media</span></article>
+        <article class="profile-stat"><small>Valor actual</small><strong>${formatEuro(player.marketValue)}</strong>${stableMarketBadge(player)}</article>
+        <article class="profile-stat"><small>Usos oficiales</small><strong>${Number(data.summary.totalLineups || 0)}</strong><span>${Number(data.summary.scoredGameweeks || 0)} jornadas puntuando</span></article>
+        <article class="profile-stat"><small>Forma</small><strong>${Number(player.form || 0)}%</strong><span>${escapeHtml(POSITION_META[player.position]?.label || player.position)}</span></article>
+      </div>
+      ${nextMatch ? `
+        <section class="profile-section">
+          <div class="profile-section-title"><h3>Proximo partido</h3><span>${escapeHtml(nextMatch.name)}</span></div>
+          <div class="next-match-card">
+            <strong>${escapeHtml(nextMatch.match.homeClub?.name || nextMatch.match.homeClub?.shortName || "Local")}</strong>
+            <span><b>${formatDateTime(nextMatch.match.kickoff)}</b><small>Jornada ${Number(nextMatch.number)}</small></span>
+            <strong>${escapeHtml(nextMatch.match.awayClub?.name || nextMatch.match.awayClub?.shortName || "Visitante")}</strong>
+          </div>
+        </section>
+      ` : ""}
+      <section class="profile-section">
+        <div class="profile-section-title"><h3>Informacion</h3></div>
+        <div class="profile-info-list">
+          <div><span>Club</span><strong>${escapeHtml(club)}</strong></div>
+          <div><span>Posicion</span><strong>${escapeHtml(POSITION_META[player.position]?.label || player.position)}</strong></div>
+          <div><span>Dorsal</span><strong>${player.shirtNumber ? `#${Number(player.shirtNumber)}` : "-"}</strong></div>
+          <div><span>Estado</span><strong>${escapeHtml(statusLabel)}</strong></div>
+        </div>
+      </section>
+    </section>
+  `;
+}
+
+function renderProfilePointsTab(rows) {
+  return `
+    <section class="player-detail-tab-panel" data-player-detail-panel="points">
+      <div class="profile-section-title"><h3>Puntos por jornada</h3><span>Toca una jornada para ver el desglose</span></div>
+      <div class="stats-table sports-stats-table">
+        <div class="stats-row stats-head"><span>Jornada y partido</span><span>Uso</span><span>Puntos</span></div>
+        ${rows.map((row) => {
+          const match = row.match
+            ? `${row.match.homeClub?.shortName || "LOC"} ${row.match.homeScore ?? "-"}:${row.match.awayScore ?? "-"} ${row.match.awayClub?.shortName || "VIS"}`
+            : "Sin partido";
+          return `
+            <button class="stats-row stats-row-button" type="button" data-player-score-row="${row.gameweekId}" ${row.score ? "" : "disabled"}>
+              <span><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(match)} - ${escapeHtml(row.status)}</small></span>
+              <span>${Number(row.usedBy || 0)}</span>
+              <span class="points-result ${row.points > 0 ? "positive" : row.points < 0 ? "negative" : ""}">${formatPoints(row.points)}</span>
+            </button>
+            <div class="player-score-detail hidden" data-player-score-detail="${row.gameweekId}">${renderPlayerScoreDetail(row)}</div>
+          `;
+        }).join("") || `<p class="hint">Sin jornadas registradas.</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderProfileValueTab({ player, currentValue, previousValue, changePercent }) {
+  return `
+    <section class="player-detail-tab-panel" data-player-detail-panel="value">
+      <div class="value-overview"><span>Valor de mercado</span><strong>${formatEuro(currentValue)}</strong>${stableMarketBadge(player)}</div>
+      <div class="value-comparison">
+        <div><small>Valor anterior</small><strong>${formatEuro(previousValue)}</strong></div>
+        <div><small>Ultimo cambio</small><strong class="${Number(player.marketValueChange || 0) > 0 ? "positive" : Number(player.marketValueChange || 0) < 0 ? "negative" : ""}">${formatSignedEuro(player.marketValueChange || 0)}</strong></div>
+        <div><small>Variacion</small><strong class="${changePercent > 0 ? "positive" : changePercent < 0 ? "negative" : ""}">${changePercent > 0 ? "+" : ""}${changePercent.toFixed(1)}%</strong></div>
+        <div><small>Calidad / precio</small><strong>${valueEfficiency(player).toFixed(2)} pts/M</strong></div>
+      </div>
+      <div class="value-track" aria-label="Cambio de valor respecto a la actualizacion anterior"><span style="width:${Math.min(100, Math.max(8, 50 + changePercent))}%"></span></div>
+      <p class="profile-note">La app conserva el valor anterior y el ultimo cambio calculado al cerrar jornada.</p>
+    </section>
+  `;
+}
+
+function renderProfileUsageTab({ rows, total, maxUsage }) {
+  return `
+    <section class="player-detail-tab-panel" data-player-detail-panel="usage">
+      <div class="usage-summary"><span>Presencia en alineaciones oficiales</span><strong>${Number(total || 0)}</strong></div>
+      <div class="usage-history">
+        ${rows.map((row) => `
+          <div class="usage-row">
+            <span><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.status)}</small></span>
+            <div class="usage-bar"><span style="width:${Math.max(0, Math.min(100, (Number(row.usedBy || 0) / maxUsage) * 100))}%"></span></div>
+            <strong>${Number(row.usedBy || 0)}</strong>
+          </div>
+        `).join("") || `<p class="hint">Todavia no hay usos oficiales.</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderProfileNewsTab(news) {
+  return `
+    <section class="player-detail-tab-panel" data-player-detail-panel="news">
+      <div class="profile-section-title"><h3>Noticias relacionadas</h3><span>Mundo Las Pulgas</span></div>
+      <div class="player-related-news">
+        ${news.map((article) => `
+          <a href="/mundolaspulgas/noticias/${encodeURIComponent(article.slug)}" target="_blank" rel="noopener">
+            <img src="${escapeHtml(article.imageUrl || "/assets/stadium-bg.png")}" alt="" />
+            <span><small>${formatDateTime(article.publishedAt)}</small><strong>${escapeHtml(article.title)}</strong><em>${escapeHtml(article.excerpt || "")}</em></span>
+          </a>
+        `).join("") || `<div class="empty-player-news"><strong>Sin noticias relacionadas</strong><span>Las noticias asociadas desde Mundo Las Pulgas apareceran aqui.</span></div>`}
+      </div>
+    </section>
+  `;
+}
+
+function setPlayerDetailTab(tab) {
+  els.playerDetailBody.querySelectorAll("[data-player-detail-tab]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.playerDetailTab === tab);
+  });
+  els.playerDetailBody.querySelectorAll("[data-player-detail-panel]").forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.playerDetailPanel === tab);
+  });
 }
 
 function renderPlayerScoreDetail(row) {
@@ -1022,6 +1244,7 @@ function togglePlayerScoreDetail(gameweekId) {
 
 function closePlayerDetail() {
   els.playerDetailModal.classList.add("hidden");
+  document.body.classList.remove("player-detail-open");
 }
 
 async function loadLineup() {
@@ -2651,9 +2874,21 @@ function bindEvents() {
   els.loginTab.addEventListener("click", () => setAuthMode("login"));
   els.registerTab.addEventListener("click", () => setAuthMode("register"));
   els.authForm.addEventListener("submit", handleAuth);
+  els.accountMenuBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleAccountMenu();
+  });
   els.logoutBtn.addEventListener("click", () => {
+    closeAccountMenu();
     setSession(null, null);
     state.user = null;
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("#accountMenuWrap")) closeAccountMenu();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeAccountMenu();
   });
 
   $$("[data-view]").forEach((button) => {
@@ -2694,6 +2929,12 @@ function bindEvents() {
   });
 
   els.playerDetailModal.addEventListener("click", (event) => {
+    const detailTab = event.target.closest("[data-player-detail-tab]");
+    if (detailTab) {
+      setPlayerDetailTab(detailTab.dataset.playerDetailTab);
+      return;
+    }
+
     const scoreRow = event.target.closest("[data-player-score-row]");
     if (scoreRow) {
       togglePlayerScoreDetail(scoreRow.dataset.playerScoreRow);

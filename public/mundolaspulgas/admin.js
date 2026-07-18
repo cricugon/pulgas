@@ -16,7 +16,7 @@ const els = {
   auth: $("#editorAuth"), shell: $("#editorShell"), loginForm: $("#editorLoginForm"), setupForm: $("#editorSetupForm"),
   loginEmail: $("#editorEmail"), loginPassword: $("#editorPassword"), setupDisplayName: $("#setupDisplayName"), setupEmail: $("#setupEmail"), setupPassword: $("#setupPassword"),
   identity: $("#editorIdentity"), logout: $("#editorLogout"), toast: $("#editorToast"),
-  articleForm: $("#articleForm"), articleId: $("#articleId"), articleTitle: $("#articleTitle"), articleBody: $("#articleBody"), articleImage: $("#articleImage"), articleStatus: $("#articleStatus"),
+  articleForm: $("#articleForm"), articleId: $("#articleId"), articleTitle: $("#articleTitle"), articleBody: $("#articleBody"), articleImage: $("#articleImage"), articlePlayer: $("#articlePlayer"), articleStatus: $("#articleStatus"),
   articlePreview: $("#articleImagePreview"), articleList: $("#editorArticleList"), saveArticle: $("#saveArticleButton"), cancelArticle: $("#cancelArticleButton"), newArticle: $("#newArticleButton"),
   predictionGameweek: $("#predictionGameweek"), predictionMatch: $("#predictionMatch"), loadPrediction: $("#loadPrediction"), predictionEditor: $("#predictionEditor"),
   statusClubFilter: $("#statusClubFilter"), statusSearch: $("#statusSearch"), statusList: $("#editorStatusList"),
@@ -205,6 +205,7 @@ function editArticle(id) {
   els.articleId.value = article._id;
   els.articleTitle.value = article.title;
   els.articleBody.value = article.body;
+  els.articlePlayer.value = objectId(article.relatedPlayer);
   els.articleStatus.value = article.status;
   state.articleImageDataUrl = "";
   els.articleImage.value = "";
@@ -231,6 +232,13 @@ function gameweekById(id) {
 }
 
 function renderCatalogControls() {
+  const selectedArticlePlayer = els.articlePlayer.value;
+  els.articlePlayer.innerHTML = `<option value="">Sin jugador asociado</option>${state.players
+    .map((player) => `<option value="${player._id}">${escapeHtml(player.name)} - ${escapeHtml(player.club?.shortName || player.club?.name || "Sin club")}</option>`)
+    .join("")}`;
+  if ([...els.articlePlayer.options].some((option) => option.value === selectedArticlePlayer)) {
+    els.articlePlayer.value = selectedArticlePlayer;
+  }
   els.predictionGameweek.innerHTML = state.gameweeks.length
     ? state.gameweeks.map((gameweek) => `<option value="${gameweek._id}">${escapeHtml(gameweek.name)} · ${escapeHtml(gameweek.status)}</option>`).join("")
     : `<option value="">Sin jornadas</option>`;
@@ -502,6 +510,7 @@ els.articleForm.addEventListener("submit", async (event) => {
         title: els.articleTitle.value,
         body: els.articleBody.value,
         status: els.articleStatus.value,
+        relatedPlayer: els.articlePlayer.value || null,
         imageDataUrl: state.articleImageDataUrl,
         imageFilename: els.articleImage.files[0]?.name || ""
       }

@@ -76,6 +76,7 @@ function serializeArticle(article, { includeBody = false } = {}) {
     slug: value.slug,
     excerpt: value.excerpt,
     imageUrl: articleImageUrl(value),
+    relatedPlayer: value.relatedPlayer || null,
     status: value.status,
     publishedAt: value.publishedAt,
     createdAt: value.createdAt,
@@ -106,6 +107,16 @@ async function uniqueSlug(title) {
     suffix += 1;
   }
   return slug;
+}
+
+async function normalizeRelatedPlayer(value) {
+  if (!value) return null;
+  if (!mongoose.isValidObjectId(value) || !(await Player.exists({ _id: value }))) {
+    const error = new Error("El jugador asociado no existe.");
+    error.status = 400;
+    throw error;
+  }
+  return value;
 }
 
 function parseImageDataUrl(value) {
@@ -469,7 +480,9 @@ mundoAdminRouter.put("/account/password", asyncRoute(async (req, res) => {
 }));
 
 mundoAdminRouter.get("/articles", asyncRoute(async (_req, res) => {
-  const articles = await MundoArticle.find({}).sort({ updatedAt: -1 });
+  const articles = await MundoArticle.find({})
+    .populate("relatedPlayer", "name position club")
+    .sort({ updatedAt: -1 });
   res.json({ articles: articles.map((article) => serializeArticle(article, { includeBody: true })) });
 }));
 
@@ -479,6 +492,7 @@ mundoAdminRouter.post("/articles", asyncRoute(async (req, res) => {
     const body = String(req.body.body || "").trim();
     const status = VALID_ARTICLE_STATUSES.has(req.body.status) ? req.body.status : "draft";
     const image = parseImageDataUrl(req.body.imageDataUrl);
+    const relatedPlayer = await normalizeRelatedPlayer(req.body.relatedPlayer);
     if (!title || !body) return res.status(400).json({ message: "Titulo y texto son obligatorios." });
     if (title.length > 180 || body.length > 30000) {
       return res.status(400).json({ message: "La noticia supera la longitud maxima permitida." });
@@ -497,6 +511,7 @@ mundoAdminRouter.post("/articles", asyncRoute(async (req, res) => {
       excerpt: buildExcerpt(body),
       body,
       image: media?._id || null,
+      relatedPlayer,
       status,
       publishedAt: status === "published" ? new Date() : null,
       author: req.mundoAdmin._id
@@ -524,6 +539,7 @@ mundoAdminRouter.put("/articles/:id", asyncRoute(async (req, res) => {
     const body = String(req.body.body || "").trim();
     const status = VALID_ARTICLE_STATUSES.has(req.body.status) ? req.body.status : article.status;
     const image = req.body.imageDataUrl ? parseImageDataUrl(req.body.imageDataUrl) : null;
+    const relatedPlayer = await normalizeRelatedPlayer(req.body.relatedPlayer);
     if (!title || !body) return res.status(400).json({ message: "Titulo y texto son obligatorios." });
     if (title.length > 180 || body.length > 30000) {
       return res.status(400).json({ message: "La noticia supera la longitud maxima permitida." });
@@ -547,6 +563,7 @@ mundoAdminRouter.put("/articles/:id", asyncRoute(async (req, res) => {
     article.title = title;
     article.body = body;
     article.excerpt = buildExcerpt(body);
+    article.relatedPlayer = relatedPlayer;
     article.status = status;
     article.author = req.mundoAdmin._id;
     if (status === "published" && !wasPublished) article.publishedAt = new Date();

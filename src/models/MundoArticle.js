@@ -7,6 +7,7 @@ const mundoArticleSchema = new mongoose.Schema(
     excerpt: { type: String, trim: true, maxlength: 320, default: "" },
     body: { type: String, required: true, trim: true, maxlength: 30000 },
     image: { type: mongoose.Schema.Types.ObjectId, ref: "MundoMedia", default: null },
+    relatedPlayer: { type: mongoose.Schema.Types.ObjectId, ref: "Player", default: null },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     publishedAt: { type: Date, default: null },
     author: { type: mongoose.Schema.Types.ObjectId, ref: "MundoAdmin", default: null },

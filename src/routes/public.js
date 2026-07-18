@@ -3,6 +3,7 @@ import { Club } from "../models/Club.js";
 import { Gameweek } from "../models/Gameweek.js";
 import { Lineup } from "../models/Lineup.js";
 import { NewsItem } from "../models/NewsItem.js";
+import { MundoArticle } from "../models/MundoArticle.js";
 import { Player } from "../models/Player.js";
 import { User } from "../models/User.js";
 import { buildGameweekScoreMap, buildPlayerMatchBreakdown } from "../services/scoring.js";
@@ -108,12 +109,16 @@ publicRouter.get("/players/:id/stats", async (req, res) => {
     return res.status(404).json({ message: "Jugador no encontrado." });
   }
 
-  const [gameweeks, lineupUsage] = await Promise.all([
+  const [gameweeks, lineupUsage, relatedNews] = await Promise.all([
     Gameweek.find({}).sort({ number: -1 }).populate("matches.homeClub matches.awayClub matches.playerScores.player"),
     Lineup.aggregate([
       { $match: { players: player._id, lockedAt: { $exists: true, $ne: null } } },
       { $group: { _id: "$gameweek", usedBy: { $sum: 1 } } }
-    ])
+    ]),
+    MundoArticle.find({ status: "published", relatedPlayer: player._id })
+      .select("title slug excerpt image publishedAt updatedAt")
+      .sort({ publishedAt: -1 })
+      .limit(20)
   ]);
   const usageMap = new Map(lineupUsage.map((item) => [item._id.toString(), item.usedBy]));
   const playerClubId = player.club?._id?.toString();
@@ -140,6 +145,7 @@ publicRouter.get("/players/:id/stats", async (req, res) => {
             id: playerMatch._id,
             homeClub: playerMatch.homeClub,
             awayClub: playerMatch.awayClub,
+            kickoff: playerMatch.kickoff,
             status: playerMatch.status,
             homeScore: playerMatch.homeScore,
             awayScore: playerMatch.awayScore
@@ -155,7 +161,15 @@ publicRouter.get("/players/:id/stats", async (req, res) => {
       totalLineups: byGameweek.reduce((sum, row) => sum + Number(row.usedBy || 0), 0),
       scoredGameweeks: byGameweek.filter((row) => row.points !== 0).length
     },
-    byGameweek
+    byGameweek,
+    relatedNews: relatedNews.map((article) => ({
+      _id: article._id,
+      title: article.title,
+      slug: article.slug,
+      excerpt: article.excerpt,
+      publishedAt: article.publishedAt,
+      imageUrl: article.image ? `/api/mundo/articles/${article._id}/image?v=${new Date(article.updatedAt).getTime()}` : null
+    }))
   });
 });
 

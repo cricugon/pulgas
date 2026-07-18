@@ -894,8 +894,28 @@ textarea:focus {
   font-weight: 900;
 }
 
-.match-teams span:last-child {
+.match-club-identity,
+.match-detail-club,
+.next-match-club {
+  display: inline-flex;
+  min-width: 0;
+  gap: 7px;
+  align-items: center;
+}
+
+.match-club-identity:last-child,
+.match-detail-club:last-child,
+.next-match-club:last-child {
+  flex-direction: row-reverse;
+  justify-self: end;
   text-align: right;
+}
+
+.match-club-identity strong,
+.match-detail-club strong,
+.next-match-club strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .score-line {
@@ -1335,6 +1355,27 @@ button.leader-row:hover {
   gap: 8px;
 }
 
+.score-mvp-field {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.45fr) minmax(260px, 1fr);
+  gap: 6px 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid rgba(68, 224, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(47, 124, 255, 0.07);
+}
+
+.score-mvp-field select {
+  grid-column: 2;
+  grid-row: 1 / 3;
+}
+
+.score-mvp-field small {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
 .score-context,
 .score-match-header {
   display: flex;
@@ -1346,6 +1387,63 @@ button.leader-row:hover {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(68, 224, 255, 0.07);
+}
+
+.score-match-clubs,
+.score-team-club {
+  display: inline-flex;
+  min-width: 0;
+  gap: 7px;
+  align-items: center;
+}
+
+.score-match-clubs .match-club-identity:last-child {
+  flex-direction: row;
+}
+
+.score-team-club > span:last-child {
+  overflow-wrap: anywhere;
+}
+
+.club-badge-upload {
+  display: grid;
+  gap: 6px;
+}
+
+.club-badge-upload small {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.club-badge-preview {
+  display: grid;
+  width: 96px;
+  height: 96px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 0.65rem;
+  text-align: center;
+}
+
+.club-badge-preview.has-image {
+  border-style: solid;
+  background: rgba(248, 251, 255, 0.96);
+}
+
+.club-badge-preview img {
+  width: 100%;
+  height: 100%;
+  padding: 5px;
+  object-fit: contain;
+}
+
+.admin-club-row {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
 }
 
 .score-player-row {
@@ -1403,7 +1501,7 @@ button.leader-row:hover {
 .score-table-head,
 .score-stat-row {
   display: grid;
-  grid-template-columns: minmax(220px, 2fr) 72px repeat(5, minmax(62px, 0.52fr)) 72px;
+  grid-template-columns: minmax(190px, 1.7fr) 68px repeat(5, minmax(56px, 0.48fr)) minmax(118px, 0.8fr) 68px;
   gap: 8px;
   align-items: center;
   min-width: 0;
@@ -1462,6 +1560,13 @@ button.leader-row:hover {
 
 .score-number:disabled {
   opacity: 0.42;
+}
+
+.score-card-select {
+  border-color: rgba(255, 77, 109, 0.55);
+  color: #ffd8df;
+  background-color: rgba(103, 17, 39, 0.5);
+  font-size: 0.7rem;
 }
 
 .score-preview {
@@ -1593,6 +1698,25 @@ button.leader-row:hover {
   text-align: right;
 }
 
+.match-detail-mvp {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 199, 71, 0.35);
+  border-radius: 7px;
+  color: #fff1c5;
+  background: rgba(255, 199, 71, 0.08);
+}
+
+.match-detail-mvp span,
+.match-detail-mvp b {
+  color: var(--warning);
+  font-size: 0.7rem;
+}
+
 .match-detail-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1625,8 +1749,9 @@ button.leader-row:hover {
 
 .match-score-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(110px, 1fr) auto auto;
   gap: 10px;
+  align-items: center;
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -1655,32 +1780,63 @@ button.leader-row:hover {
   white-space: nowrap;
 }
 
-.match-score-stats {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.match-score-stat {
-  display: grid;
-  gap: 2px;
+.match-score-actions {
+  display: flex;
   min-width: 0;
-  padding: 7px 6px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.05);
-  text-align: center;
+  flex-wrap: nowrap;
+  gap: 4px;
+  align-items: center;
+  justify-content: flex-end;
 }
 
-.match-score-stat small {
-  color: var(--muted);
+.score-action-token {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 5px;
+  border: 1px solid rgba(151, 181, 255, 0.18);
+  border-radius: 4px;
+  color: #d9e4f7;
+  background: rgba(151, 181, 255, 0.07);
   font-size: 0.66rem;
-  font-weight: 800;
+  font-weight: 850;
+  white-space: nowrap;
 }
 
-.match-score-stat strong {
-  font-size: 0.92rem;
+.score-action-token b {
+  color: var(--cyan);
+  font-size: 0.6rem;
+}
+
+.pica-icons {
+  min-width: 24px;
+  justify-content: center;
+  color: #f7fbff;
+  letter-spacing: 1px;
+}
+
+.card-action {
+  border-color: rgba(255, 77, 109, 0.42);
+  color: #ffd9e0;
+  background: rgba(255, 77, 109, 0.12);
+}
+
+.card-action b {
+  color: var(--danger);
+}
+
+.mvp-action {
+  border-color: rgba(255, 199, 71, 0.42);
+  background: rgba(255, 199, 71, 0.1);
+}
+
+.mvp-action b {
+  color: var(--warning);
+}
+
+.no-play {
+  color: var(--muted);
 }
 
 .admin-modal.score-modal-open {
@@ -1869,7 +2025,16 @@ button.leader-row:hover {
   .score-team-title,
   .score-table-head,
   .score-stat-row {
-    min-width: 760px;
+    min-width: 900px;
+  }
+
+  .score-mvp-field {
+    grid-template-columns: 1fr;
+  }
+
+  .score-mvp-field select {
+    grid-column: 1;
+    grid-row: auto;
   }
 }
 
@@ -2048,6 +2213,7 @@ button.leader-row:hover {
 
 .club-badge,
 .profile-club-badge {
+  position: relative;
   display: grid;
   place-items: center;
   width: 40px;
@@ -2058,6 +2224,51 @@ button.leader-row:hover {
   background: color-mix(in srgb, var(--club-color) 20%, #081225);
   font-size: 0.6rem;
   font-weight: 950;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.club-badge img,
+.profile-club-badge img,
+.fixture-club-badge img,
+.admin-club-badge img {
+  position: absolute;
+  inset: 2px;
+  width: calc(100% - 4px);
+  height: calc(100% - 4px);
+  object-fit: contain;
+  border-radius: inherit;
+  background: rgba(248, 251, 255, 0.96);
+}
+
+.club-badge-fallback {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+}
+
+.fixture-club-badge,
+.admin-club-badge {
+  position: relative;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid var(--club-color);
+  border-radius: 50%;
+  color: var(--text);
+  background: color-mix(in srgb, var(--club-color) 20%, #081225);
+  font-size: 0.5rem;
+  font-weight: 950;
+}
+
+.admin-club-badge {
+  width: 46px;
+  height: 46px;
+  font-size: 0.58rem;
 }
 
 .position-badge {
@@ -2286,7 +2497,7 @@ button.leader-row:hover {
 
 .sports-profile-copy h2 {
   margin: 0 0 8px;
-  font-size: clamp(1.55rem, 6vw, 2.5rem);
+  font-size: 2.3rem;
 }
 
 .player-status-label {
@@ -2443,6 +2654,14 @@ button.leader-row:hover {
   display: block;
 }
 
+.next-match-club {
+  justify-self: center;
+}
+
+.next-match-club strong {
+  font-size: 0.78rem;
+}
+
 .next-match-card > span b {
   color: var(--cyan);
   font-size: 0.72rem;
@@ -2525,7 +2744,7 @@ button.leader-row:hover {
 
 .value-overview > strong,
 .usage-summary > strong {
-  font-size: clamp(1.8rem, 7vw, 3rem);
+  font-size: 2.5rem;
 }
 
 .value-comparison {
@@ -2659,6 +2878,14 @@ button.leader-row:hover {
 }
 
 @media (max-width: 640px) {
+  body[data-active-view="market"] .hero-panel,
+  body[data-active-view="lineup"] .hero-panel,
+  body[data-active-view="leaderboard"] .hero-panel,
+  body[data-active-view="profile"] .hero-panel,
+  body[data-active-view="rules"] .hero-panel {
+    display: none;
+  }
+
   #playerDetailModal {
     place-items: stretch;
     padding: 0;
@@ -2685,6 +2912,23 @@ button.leader-row:hover {
 
   #marketView .filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .market-subnav.segmented {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    padding: 4px;
+    scrollbar-width: none;
+  }
+
+  .market-subnav.segmented::-webkit-scrollbar {
+    display: none;
+  }
+
+  .market-subnav.segmented button {
+    flex: 0 0 auto;
+    min-width: 116px;
   }
 
   #playerSearch {
@@ -2761,6 +3005,21 @@ button.leader-row:hover {
     grid-template-rows: 130px auto;
   }
 
+  .sports-profile-copy h2 {
+    font-size: 1.7rem;
+  }
+
+  .player-detail-tabs button {
+    min-width: 78px;
+    padding: 0 5px;
+    font-size: 0.66rem;
+  }
+
+  .value-overview > strong,
+  .usage-summary > strong {
+    font-size: 1.8rem;
+  }
+
   .profile-summary-grid,
   .profile-info-list,
   .value-comparison {
@@ -2803,5 +3062,85 @@ button.leader-row:hover {
   .profile-info-list,
   .value-comparison {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .match-score-row {
+    grid-template-columns: minmax(76px, 1fr) auto 46px;
+    gap: 5px;
+    padding: 8px 7px;
+  }
+
+  .match-score-player strong {
+    font-size: 0.7rem;
+    line-height: 1.1;
+  }
+
+  .match-score-player small {
+    font-size: 0.56rem;
+  }
+
+  .match-score-actions {
+    gap: 2px;
+    overflow: hidden;
+  }
+
+  .score-action-token {
+    min-height: 0;
+    gap: 1px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    font-size: 0.56rem;
+  }
+
+  .score-action-token b {
+    font-size: 0.54rem;
+  }
+
+  .score-action-token + .score-action-token::before {
+    content: "\00b7";
+    margin-right: 2px;
+    color: var(--muted);
+  }
+
+  .pica-icons {
+    min-width: 12px;
+    letter-spacing: 0;
+    font-size: 0.64rem;
+  }
+
+  .match-score-points {
+    justify-self: end;
+    font-size: 0.7rem;
+  }
+
+  .fixture-club-badge {
+    width: 28px;
+    height: 28px;
+  }
+
+  .match-detail-club,
+  .next-match-club {
+    flex-direction: column;
+    justify-self: center;
+    text-align: center;
+  }
+
+  .match-detail-club:last-child,
+  .next-match-club:last-child {
+    flex-direction: column;
+    justify-self: center;
+    text-align: center;
+  }
+
+  .admin-club-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .admin-club-row .row-actions {
+    grid-column: 1 / -1;
   }
 }

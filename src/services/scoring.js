@@ -11,6 +11,12 @@ const BASE_POINTS = {
   DEL: 2
 };
 
+const CARD_PENALTIES = {
+  none: 0,
+  second_yellow: -2,
+  direct_red: -3
+};
+
 function sameId(a, b) {
   return String(a?._id || a || "") === String(b?._id || b || "");
 }
@@ -40,6 +46,11 @@ export function normalizeScoreStat(value, { max = Number.POSITIVE_INFINITY } = {
   return Math.min(Math.floor(number), max);
 }
 
+export function normalizeScoreCard(value) {
+  const card = String(value || "none");
+  return Object.hasOwn(CARD_PENALTIES, card) ? card : null;
+}
+
 export function calculatePlayerMatchPoints(player, match, stats = {}) {
   if (!stats.played) return 0;
 
@@ -50,6 +61,8 @@ export function calculatePlayerMatchPoints(player, match, stats = {}) {
   const assists = normalizeScoreStat(stats.assists) ?? 0;
   const penaltySaves = normalizeScoreStat(stats.penaltySaves) ?? 0;
   const picas = normalizeScoreStat(stats.picas, { max: 3 }) ?? 0;
+  const card = normalizeScoreCard(stats.card) || "none";
+  const isMvp = Boolean(stats.isMvp || sameId(player, match.mvp));
   const isDefensive = position === "POR" || position === "DEF";
 
   let points = BASE_POINTS[position] || 0;
@@ -57,6 +70,8 @@ export function calculatePlayerMatchPoints(player, match, stats = {}) {
   points += specialGoals * 2;
   points += assists;
   points += picas * 2;
+  points += CARD_PENALTIES[card];
+  if (isMvp) points += 3;
 
   if (position === "POR") points += penaltySaves * 3;
 
@@ -79,6 +94,8 @@ export function buildPlayerMatchBreakdown(player, match, stats = {}) {
   const assists = normalizeScoreStat(stats.assists) ?? 0;
   const penaltySaves = normalizeScoreStat(stats.penaltySaves) ?? 0;
   const picas = normalizeScoreStat(stats.picas, { max: 3 }) ?? 0;
+  const card = normalizeScoreCard(stats.card) || "none";
+  const isMvp = Boolean(stats.isMvp || sameId(player, match.mvp));
   const isDefensive = position === "POR" || position === "DEF";
 
   if (!stats.played) {
@@ -113,6 +130,16 @@ export function buildPlayerMatchBreakdown(player, match, stats = {}) {
 
   if (picas > 0) {
     lines.push({ label: "Picas", detail: `${picas} x 2`, points: picas * 2 });
+  }
+
+  if (card === "second_yellow") {
+    lines.push({ label: "Doble amarilla", detail: "Expulsion", points: -2 });
+  } else if (card === "direct_red") {
+    lines.push({ label: "Roja directa", detail: "Expulsion", points: -3 });
+  }
+
+  if (isMvp) {
+    lines.push({ label: "MVP", detail: "Mejor jugador del partido", points: 3 });
   }
 
   if (isDefensive) {

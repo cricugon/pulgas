@@ -11,6 +11,7 @@ const newsItemSchema = new mongoose.Schema(
     body: { type: String, trim: true, default: "" },
     pinned: { type: Boolean, default: false },
     pinnedAt: { type: Date, default: null },
+    eventKey: { type: String, trim: true },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} }
   },
   { timestamps: true }
@@ -19,5 +20,6 @@ const newsItemSchema = new mongoose.Schema(
 newsItemSchema.index({ pinned: -1, pinnedAt: -1, createdAt: -1 });
 newsItemSchema.index({ createdAt: -1 });
 newsItemSchema.index({ type: 1, createdAt: -1 });
+newsItemSchema.index({ eventKey: 1 }, { unique: true, sparse: true });
 
 export const NewsItem = mongoose.model("NewsItem", newsItemSchema);

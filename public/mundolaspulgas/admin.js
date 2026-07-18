@@ -189,6 +189,7 @@ function renderArticles() {
       <div>
         <span class="editor-status-pill ${article.status}">${article.status === "published" ? "Publicada" : "Borrador"}</span>
         <h2>${escapeHtml(article.title)}</h2>
+        ${article.relatedPlayer ? `<small>Jugador: ${escapeHtml(article.relatedPlayer.name || "Asociado")}</small>` : ""}
         <small>${formatDate(article.publishedAt || article.updatedAt)} · ${Number(article.views || 0)} lecturas</small>
       </div>
       <div class="editor-list-actions">

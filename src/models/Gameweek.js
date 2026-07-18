@@ -10,6 +10,11 @@ const playerScoreSchema = new mongoose.Schema(
     assists: { type: Number, default: 0, min: 0 },
     penaltySaves: { type: Number, default: 0, min: 0 },
     picas: { type: Number, default: 0, min: 0, max: 3 },
+    card: {
+      type: String,
+      enum: ["none", "direct_red", "second_yellow"],
+      default: "none"
+    },
     note: { type: String, trim: true, default: "" }
   },
   { _id: false }
@@ -27,6 +32,7 @@ const matchSchema = new mongoose.Schema(
     },
     homeScore: { type: Number, default: null },
     awayScore: { type: Number, default: null },
+    mvp: { type: mongoose.Schema.Types.ObjectId, ref: "Player", default: null },
     playerScores: [playerScoreSchema]
   },
   { timestamps: true }

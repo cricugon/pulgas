@@ -61,6 +61,8 @@ function serializePlayerScoreDetail(player, match, score) {
     assists: Number(score.assists || 0),
     penaltySaves: Number(score.penaltySaves || 0),
     picas: Number(score.picas || 0),
+    card: score.card || "none",
+    isMvp: sameId(player, match.mvp),
     lines: breakdown.lines
   };
 }
@@ -68,6 +70,21 @@ function serializePlayerScoreDetail(player, match, score) {
 publicRouter.get("/clubs", async (_req, res) => {
   const clubs = await Club.find({}).sort({ name: 1 });
   res.json({ clubs });
+});
+
+publicRouter.get("/clubs/:id/badge", async (req, res) => {
+  try {
+    const club = await Club.findById(req.params.id).select("+badgeData badgeContentType badgeUpdatedAt");
+    if (!club?.badgeData?.length || !club.badgeContentType) {
+      return res.status(404).json({ message: "Este club no tiene escudo." });
+    }
+
+    res.set("Cache-Control", "public, max-age=86400");
+    res.type(club.badgeContentType);
+    return res.send(club.badgeData);
+  } catch {
+    return res.status(404).json({ message: "Escudo no encontrado." });
+  }
 });
 
 publicRouter.get("/news", async (req, res) => {

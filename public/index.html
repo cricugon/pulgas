@@ -229,6 +229,8 @@
                     <li>Cada jugador que participa recibe de 0 a 3 picas.</li>
                     <li>Cada pica suma 2 puntos.</li>
                     <li>Maximo por picas: 6 puntos.</li>
+                    <li>El MVP del partido suma 3 puntos extra.</li>
+                    <li>Una doble amarilla resta 2 puntos y una roja directa resta 3.</li>
                   </ul>
                 </article>
 
@@ -465,6 +467,16 @@
                   <input id="clubNameInput" required placeholder="Club" />
                   <input id="clubShortInput" required maxlength="5" placeholder="SIGLAS" />
                   <input id="clubCityInput" placeholder="Ciudad" />
+                  <label class="club-badge-upload">
+                    Escudo del club
+                    <input id="clubBadgeInput" type="file" accept="image/jpeg,image/png,image/webp" />
+                    <small>JPG, PNG o WEBP. Maximo 2 MB.</small>
+                  </label>
+                  <div id="clubBadgePreview" class="club-badge-preview"><span>Sin escudo</span></div>
+                  <label id="clubBadgeRemoveField" class="check-row hidden">
+                    <input id="clubBadgeRemoveInput" type="checkbox" />
+                    Quitar el escudo actual
+                  </label>
                   <button class="primary-button" type="submit">Guardar club</button>
                 </form>
                 <div id="adminClubs" class="admin-list"></div>
@@ -560,6 +572,13 @@
                       <input id="scoreAwayInput" type="number" min="0" step="1" required />
                     </label>
                   </div>
+                  <label class="score-mvp-field">
+                    MVP del partido (+3 puntos)
+                    <select id="scoreMvpInput">
+                      <option value="">Sin MVP</option>
+                    </select>
+                    <small>Debe estar marcado como jugador participante.</small>
+                  </label>
                   <div id="scorePlayersList" class="score-player-list"></div>
                   <button class="primary-button" type="submit">Guardar puntuaciones</button>
                 </form>

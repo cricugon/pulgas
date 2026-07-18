@@ -28,6 +28,7 @@ const state = {
   activeGameweekLeaderboard: null,
   historyGameweekDetails: {},
   playerStatsCache: {},
+  clubBadgeDataUrl: "",
   admin: {
     summary: null,
     settings: null,
@@ -142,6 +143,10 @@ const els = {
   clubNameInput: $("#clubNameInput"),
   clubShortInput: $("#clubShortInput"),
   clubCityInput: $("#clubCityInput"),
+  clubBadgeInput: $("#clubBadgeInput"),
+  clubBadgePreview: $("#clubBadgePreview"),
+  clubBadgeRemoveField: $("#clubBadgeRemoveField"),
+  clubBadgeRemoveInput: $("#clubBadgeRemoveInput"),
   adminClubs: $("#adminClubs"),
   newsForm: $("#newsForm"),
   newsIdInput: $("#newsIdInput"),
@@ -174,6 +179,7 @@ const els = {
   scoreMatchInput: $("#scoreMatchInput"),
   scoreHomeInput: $("#scoreHomeInput"),
   scoreAwayInput: $("#scoreAwayInput"),
+  scoreMvpInput: $("#scoreMvpInput"),
   scoreActiveInfo: $("#scoreActiveInfo"),
   scorePlayersList: $("#scorePlayersList"),
   adminGameweeks: $("#adminGameweeks")
@@ -335,10 +341,27 @@ function positionBadge(position, { compact = false } = {}) {
   return `<span class="position-badge position-${escapeHtml(position || "other")}" title="${escapeHtml(meta.label)}">${escapeHtml(compact ? meta.short : meta.label)}</span>`;
 }
 
+function clubBadgeUrl(club) {
+  if (!club?._id || !club.badgeContentType) return "";
+  const version = club.badgeUpdatedAt ? new Date(club.badgeUpdatedAt).getTime() : "1";
+  return `/api/clubs/${encodeURIComponent(club._id)}/badge?v=${version}`;
+}
+
 function clubBadge(club, className = "club-badge") {
   const shortName = club?.shortName || club?.name || "FA";
   const color = club?.primaryColor || "#2f7cff";
-  return `<span class="${className}" style="--club-color:${escapeHtml(color)}">${escapeHtml(String(shortName).slice(0, 5))}</span>`;
+  const imageUrl = clubBadgeUrl(club);
+  return `
+    <span class="${className} ${imageUrl ? "has-image" : ""}" style="--club-color:${escapeHtml(color)}" title="${escapeHtml(club?.name || shortName)}">
+      <span class="club-badge-fallback">${escapeHtml(String(shortName).slice(0, 5))}</span>
+      ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="Escudo de ${escapeHtml(club?.name || shortName)}" loading="lazy" decoding="async" />` : ""}
+    </span>
+  `;
+}
+
+function clubIdentity(club, { fullName = false, className = "match-club-identity" } = {}) {
+  const label = fullName ? club?.name || club?.shortName : club?.shortName || club?.name;
+  return `<span class="${className}">${clubBadge(club, "fixture-club-badge")}<strong>${escapeHtml(label || "Club")}</strong></span>`;
 }
 
 function stableMarketBadge(player) {
@@ -405,6 +428,7 @@ function setAuthMode(mode) {
 
 function setView(view) {
   state.activeView = view;
+  document.body.dataset.activeView = view;
   $$(".tab").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
   els.profileTopBtn?.classList.toggle("active", view === "profile");
   $$(".view").forEach((section) => section.classList.remove("active"));
@@ -599,9 +623,9 @@ function renderActiveGameweek() {
       return `
         <button class="match-card match-card-button" type="button" data-match-detail="${match._id}">
           <div class="match-teams">
-            <span>${escapeHtml(match.homeClub?.shortName || "LOC")}</span>
+            ${clubIdentity(match.homeClub)}
             <strong>${match.homeScore ?? "-"} : ${match.awayScore ?? "-"}</strong>
-            <span>${escapeHtml(match.awayClub?.shortName || "VIS")}</span>
+            ${clubIdentity(match.awayClub)}
           </div>
           <div class="score-line match-kickoff">${formatDateTime(match.kickoff)}</div>
           <div class="score-line">${escapeHtml(match.status)}${scores ? ` · ${scores}` : ""}</div>
@@ -627,6 +651,53 @@ function scoreClass(points) {
   return points > 0 ? "positive" : points < 0 ? "negative" : "";
 }
 
+const SCORE_CARD_LABELS = {
+  none: "Ninguna",
+  second_yellow: "Doble amarilla",
+  direct_red: "Roja directa"
+};
+
+function scoreCardLabel(card) {
+  return SCORE_CARD_LABELS[card] || SCORE_CARD_LABELS.none;
+}
+
+function isMatchMvp(match, player) {
+  return Boolean(match?.mvp) && objectId(match.mvp) === objectId(player);
+}
+
+function scoreActionToken(label, value, title, className = "") {
+  return `<span class="score-action-token ${className}" title="${escapeHtml(title)}"><b>${escapeHtml(label)}</b>${escapeHtml(value)}</span>`;
+}
+
+function picaSymbols(value, played) {
+  const count = played ? Math.max(0, Math.min(3, Number(value || 0))) : 0;
+  return count ? "&spades;".repeat(count) : "-";
+}
+
+function renderPicaIcons(value, played) {
+  const count = played ? Math.max(0, Math.min(3, Number(value || 0))) : 0;
+  const icons = picaSymbols(value, played);
+  const title = count ? `${count} ${count === 1 ? "pica" : "picas"}` : "Sin picas";
+  return `<span class="score-action-token pica-icons" title="${title}" aria-label="${title}">${icons}</span>`;
+}
+
+function renderCompactScoreActions(match, score) {
+  if (!score.played) {
+    return `<span class="score-action-token no-play">No jugo</span>${renderPicaIcons(0, false)}`;
+  }
+
+  const actions = [];
+  if (Number(score.commonGoals || 0) > 0) actions.push(scoreActionToken("G", score.commonGoals, "Goles en juego"));
+  if (Number(score.specialGoals || 0) > 0) actions.push(scoreActionToken("P/D", score.specialGoals, "Goles de penalti o dado"));
+  if (Number(score.assists || 0) > 0) actions.push(scoreActionToken("A", score.assists, "Asistencias"));
+  if (Number(score.penaltySaves || 0) > 0) actions.push(scoreActionToken("PP", score.penaltySaves, "Penaltis parados"));
+  actions.push(renderPicaIcons(score.picas, true));
+  if (score.card === "second_yellow") actions.push(scoreActionToken("2A", "", "Doble amarilla", "card-action"));
+  if (score.card === "direct_red") actions.push(scoreActionToken("RD", "", "Roja directa", "card-action"));
+  if (isMatchMvp(match, score.player)) actions.push(scoreActionToken("MVP", "", "MVP del partido: +3 puntos", "mvp-action"));
+  return actions.join("");
+}
+
 function matchScoresForClub(match, club) {
   const clubId = objectId(club);
   return (match.playerScores || [])
@@ -644,33 +715,16 @@ function renderMatchScoreRows(match, club) {
 
   return rows
     .map((score) => {
-      const stats = [
-        ["Goles", score.commonGoals || 0],
-        ["Pen/Dado", score.specialGoals || 0],
-        ["Asist.", score.assists || 0],
-        ["Pen. par.", score.penaltySaves || 0],
-        ["Picas", score.picas || 0]
-      ];
-
       return `
         <article class="match-score-row ${score.played ? "" : "not-played"}">
           <div class="match-score-player">
             <strong>${escapeHtml(score.player?.name || "Jugador")}</strong>
             <small>${escapeHtml(score.player?.position || "-")} · ${score.played ? "Jugado" : "No jugo"}</small>
           </div>
-          <strong class="match-score-points ${scoreClass(Number(score.points || 0))}">${formatPoints(score.points)}</strong>
-          <div class="match-score-stats">
-            ${stats
-              .map(
-                ([label, value]) => `
-                  <span class="match-score-stat">
-                    <small>${escapeHtml(label)}</small>
-                    <strong>${value}</strong>
-                  </span>
-                `
-              )
-              .join("")}
+          <div class="match-score-actions" aria-label="Acciones de ${escapeHtml(score.player?.name || "Jugador")}">
+            ${renderCompactScoreActions(match, score)}
           </div>
+          <strong class="match-score-points ${scoreClass(Number(score.points || 0))}">${formatPoints(score.points)}</strong>
         </article>
       `;
     })
@@ -692,13 +746,15 @@ function openMatchDetail(matchId) {
 
   const homeName = match.homeClub?.shortName || match.homeClub?.name || "LOC";
   const awayName = match.awayClub?.shortName || match.awayClub?.name || "VIS";
+  const mvpScore = (match.playerScores || []).find((score) => isMatchMvp(match, score.player));
   els.matchDetailTitle.textContent = `${homeName} ${match.homeScore ?? "-"}:${match.awayScore ?? "-"} ${awayName}`;
   els.matchDetailBody.innerHTML = `
     <div class="match-detail-score">
-      <span>${escapeHtml(match.homeClub?.name || homeName)}</span>
+      ${clubIdentity(match.homeClub, { fullName: true, className: "match-detail-club" })}
       <strong>${match.homeScore ?? "-"} : ${match.awayScore ?? "-"}</strong>
-      <span>${escapeHtml(match.awayClub?.name || awayName)}</span>
+      ${clubIdentity(match.awayClub, { fullName: true, className: "match-detail-club" })}
     </div>
+    ${mvpScore ? `<div class="match-detail-mvp"><span>MVP del partido</span><strong>${escapeHtml(mvpScore.player?.name || "Jugador")}</strong><b>+3 pts</b></div>` : ""}
     <div class="match-detail-tabs" role="tablist">
       <button class="active" data-match-team="home" type="button">${escapeHtml(homeName)}</button>
       <button data-match-team="away" type="button">${escapeHtml(awayName)}</button>
@@ -870,6 +926,7 @@ async function loadMarket() {
   try {
     const data = await api("/api/market");
     state.marketPlayers = data.players;
+    state.playerStatsCache = {};
     renderMarketClubFilter();
     renderMarket();
   } catch (error) {
@@ -1079,9 +1136,9 @@ function renderProfileSummaryTab({ player, club, data, average, nextMatch, statu
         <section class="profile-section">
           <div class="profile-section-title"><h3>Proximo partido</h3><span>${escapeHtml(nextMatch.name)}</span></div>
           <div class="next-match-card">
-            <strong>${escapeHtml(nextMatch.match.homeClub?.name || nextMatch.match.homeClub?.shortName || "Local")}</strong>
+            ${clubIdentity(nextMatch.match.homeClub, { fullName: true, className: "next-match-club" })}
             <span><b>${formatDateTime(nextMatch.match.kickoff)}</b><small>Jornada ${Number(nextMatch.number)}</small></span>
-            <strong>${escapeHtml(nextMatch.match.awayClub?.name || nextMatch.match.awayClub?.shortName || "Visitante")}</strong>
+            ${clubIdentity(nextMatch.match.awayClub, { fullName: true, className: "next-match-club" })}
           </div>
         </section>
       ` : ""}
@@ -1194,7 +1251,9 @@ function renderPlayerScoreDetail(row) {
     ["Asist.", score.assists || 0],
     ["Pen. par.", score.penaltySaves || 0],
     ["Picas", score.picas || 0],
-    ["Encajados", score.goalsAgainst || 0]
+    ["Encajados", score.goalsAgainst || 0],
+    ["Tarjeta", scoreCardLabel(score.card)],
+    ["MVP", score.isMvp ? "Si (+3)" : "No"]
   ];
 
   return `
@@ -1204,7 +1263,7 @@ function renderPlayerScoreDetail(row) {
           ([label, value]) => `
             <span>
               <small>${escapeHtml(label)}</small>
-              <strong>${escapeHtml(value)}</strong>
+              <strong>${label === "Picas" ? picaSymbols(value, score.played) : escapeHtml(value)}</strong>
             </span>
           `
         )
@@ -2009,7 +2068,8 @@ function renderAdmin() {
   els.adminClubs.innerHTML = state.admin.clubs
     .map(
       (club) => `
-      <article class="admin-row">
+      <article class="admin-row admin-club-row">
+        ${clubBadge(club, "admin-club-badge")}
         <div>
           <strong>${escapeHtml(club.name)}</strong>
           <small>${escapeHtml(club.shortName)} · ${escapeHtml(club.city || "Sin ciudad")}</small>
@@ -2089,9 +2149,9 @@ function renderAdminGameweek(gw) {
       (match) => `
       <div class="match-card">
         <div class="match-teams">
-          <span>${escapeHtml(match.homeClub?.shortName || "")}</span>
+          ${clubIdentity(match.homeClub)}
           <strong>${match.homeScore ?? "-"} : ${match.awayScore ?? "-"}</strong>
-          <span>${escapeHtml(match.awayClub?.shortName || "")}</span>
+          ${clubIdentity(match.awayClub)}
         </div>
         <div class="score-line match-kickoff">${formatDateTime(match.kickoff)}</div>
         <div class="score-line">${match.status} · ${matchScoredPlayers(match)} puntuados</div>
@@ -2130,6 +2190,8 @@ function renderScoreMatchOptions() {
     els.scoreMatchInput.disabled = true;
     els.scoreHomeInput.value = "";
     els.scoreAwayInput.value = "";
+    els.scoreMvpInput.innerHTML = `<option value="">Sin MVP</option>`;
+    els.scoreMvpInput.disabled = true;
     els.scoreActiveInfo.innerHTML = `<p class="hint">No hay ninguna jornada en juego. Inicia una jornada para puntuar sus partidos.</p>`;
     els.scorePlayersList.innerHTML = "";
     return;
@@ -2184,7 +2246,9 @@ function matchScoredPlayers(match) {
 function scoreInputValue(row, field) {
   const input = row.querySelector(`[data-score-field="${field}"]`);
   if (!input) return 0;
-  return input.type === "checkbox" ? input.checked : Number(input.value || 0);
+  if (input.type === "checkbox") return input.checked;
+  if (field === "card") return input.value || "none";
+  return Number(input.value || 0);
 }
 
 function scoreGoalsAgainst(player) {
@@ -2210,6 +2274,9 @@ function calculateScorePreview(player, stats) {
   points += Number(stats.specialGoals || 0) * 2;
   points += Number(stats.assists || 0);
   points += Number(stats.picas || 0) * 2;
+  if (stats.card === "second_yellow") points -= 2;
+  if (stats.card === "direct_red") points -= 3;
+  if (stats.isMvp) points += 3;
 
   if (player.position === "POR") points += Number(stats.penaltySaves || 0) * 3;
 
@@ -2237,7 +2304,9 @@ function updateScorePreviews() {
       specialGoals: scoreInputValue(row, "specialGoals"),
       assists: scoreInputValue(row, "assists"),
       penaltySaves: player.position === "POR" ? scoreInputValue(row, "penaltySaves") : 0,
-      picas: scoreInputValue(row, "picas")
+      picas: scoreInputValue(row, "picas"),
+      card: scoreInputValue(row, "card"),
+      isMvp: els.scoreMvpInput.value === player._id
     };
     const points = calculateScorePreview(player, stats);
     const output = row.querySelector("[data-score-preview]");
@@ -2280,6 +2349,11 @@ function renderScoreRow(player, match) {
           .map((value) => `<option value="${value}" ${Number(statValue(existing, "picas")) === value ? "selected" : ""}>${value}</option>`)
           .join("")}
       </select>
+      <select class="score-number score-card-select" data-score-field="card" aria-label="Tarjeta de ${escapeHtml(player.name)}">
+        ${Object.entries(SCORE_CARD_LABELS)
+          .map(([value, label]) => `<option value="${value}" ${statValue(existing, "card", "none") === value ? "selected" : ""}>${label}</option>`)
+          .join("")}
+      </select>
       <strong class="score-preview" data-score-preview>${formatPoints(existing?.points || 0)}</strong>
     </article>
   `;
@@ -2291,6 +2365,8 @@ function renderScorePlayers() {
     els.scorePlayersList.innerHTML = `<p class="hint">La jornada activa todavia no tiene partidos.</p>`;
     els.scoreHomeInput.value = "";
     els.scoreAwayInput.value = "";
+    els.scoreMvpInput.innerHTML = `<option value="">Sin MVP</option>`;
+    els.scoreMvpInput.disabled = true;
     return;
   }
 
@@ -2309,8 +2385,22 @@ function renderScorePlayers() {
     });
 
   if (!players.length) {
+    els.scoreMvpInput.innerHTML = `<option value="">Sin MVP</option>`;
+    els.scoreMvpInput.disabled = true;
     els.scorePlayersList.innerHTML = `<p class="hint">No hay jugadores asignados a estos dos equipos.</p>`;
     return;
+  }
+
+  const currentMvp = objectId(match.mvp);
+  els.scoreMvpInput.disabled = false;
+  els.scoreMvpInput.innerHTML = `
+    <option value="">Sin MVP</option>
+    ${players
+      .map((player) => `<option value="${player._id}">${escapeHtml(player.name)} - ${escapeHtml(player.club?.shortName || player.club?.name || "")}</option>`)
+      .join("")}
+  `;
+  if ([...els.scoreMvpInput.options].some((option) => option.value === currentMvp)) {
+    els.scoreMvpInput.value = currentMvp;
   }
 
   const playersByClub = new Map([
@@ -2324,7 +2414,7 @@ function renderScorePlayers() {
 
   els.scorePlayersList.innerHTML = `
     <div class="score-match-header">
-      <strong>${escapeHtml(match.homeClub?.shortName || "LOC")} - ${escapeHtml(match.awayClub?.shortName || "VIS")}</strong>
+      <strong class="score-match-clubs">${clubIdentity(match.homeClub)}<span>-</span>${clubIdentity(match.awayClub)}</strong>
       <span class="pill">${escapeHtml(match.status)} - ${matchScoredPlayers(match)} jugadores puntuados</span>
     </div>
     ${teamSections
@@ -2332,7 +2422,7 @@ function renderScorePlayers() {
         ({ club, players: teamPlayers }) => `
           <section class="score-team-table">
             <div class="score-team-title">
-              <strong>${escapeHtml(club?.name || "Equipo")}</strong>
+              <strong class="score-team-club">${clubBadge(club, "fixture-club-badge")}<span>${escapeHtml(club?.name || "Equipo")}</span></strong>
               <span>${teamPlayers.length} jugadores</span>
             </div>
             <div class="score-table-head" aria-hidden="true">
@@ -2343,6 +2433,7 @@ function renderScorePlayers() {
               <span>Ast</span>
               <span>Pen Par</span>
               <span>Picas</span>
+              <span>Tarjeta</span>
               <span>Pts</span>
             </div>
             ${teamPlayers.map((player) => renderScoreRow(player, match)).join("")}
@@ -2439,7 +2530,10 @@ async function saveClub(event) {
       body: {
         name: els.clubNameInput.value,
         shortName: els.clubShortInput.value,
-        city: els.clubCityInput.value
+        city: els.clubCityInput.value,
+        badgeDataUrl: state.clubBadgeDataUrl,
+        badgeFilename: els.clubBadgeInput.files[0]?.name || "",
+        removeBadge: els.clubBadgeRemoveInput.checked
       }
     });
     resetClubForm();
@@ -2459,12 +2553,50 @@ function editClub(clubId) {
   els.clubNameInput.value = club.name;
   els.clubShortInput.value = club.shortName;
   els.clubCityInput.value = club.city || "";
+  state.clubBadgeDataUrl = "";
+  els.clubBadgeInput.value = "";
+  els.clubBadgeRemoveInput.checked = false;
+  els.clubBadgeRemoveField.classList.toggle("hidden", !club.badgeContentType);
+  renderClubBadgeFormPreview();
   openAdminModal("club", "Editar club");
 }
 
 function resetClubForm() {
   els.clubForm.reset();
   els.clubIdInput.value = "";
+  state.clubBadgeDataUrl = "";
+  els.clubBadgeRemoveField.classList.add("hidden");
+  renderClubBadgeFormPreview();
+}
+
+function currentClubFormClub() {
+  return state.admin.clubs.find((club) => club._id === els.clubIdInput.value) || null;
+}
+
+function renderClubBadgeFormPreview() {
+  const club = currentClubFormClub();
+  const imageUrl = state.clubBadgeDataUrl || (!els.clubBadgeRemoveInput.checked ? clubBadgeUrl(club) : "");
+  els.clubBadgePreview.innerHTML = imageUrl
+    ? `<img src="${escapeHtml(imageUrl)}" alt="Vista previa del escudo" />`
+    : `<span>${els.clubBadgeRemoveInput.checked ? "El escudo se eliminara al guardar" : "Sin escudo"}</span>`;
+  els.clubBadgePreview.classList.toggle("has-image", Boolean(imageUrl));
+}
+
+function readClubBadgeFile(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) return resolve("");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      return reject(new Error("El escudo debe ser JPG, PNG o WEBP."));
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      return reject(new Error("El escudo no puede superar 2 MB."));
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("No se pudo leer el escudo."));
+    reader.readAsDataURL(file);
+  });
 }
 
 async function saveNews(event) {
@@ -2740,7 +2872,8 @@ async function saveScore(event) {
         specialGoals: scoreInputValue(row, "specialGoals"),
         assists: scoreInputValue(row, "assists"),
         penaltySaves: player?.position === "POR" ? scoreInputValue(row, "penaltySaves") : 0,
-        picas: scoreInputValue(row, "picas")
+        picas: scoreInputValue(row, "picas"),
+        card: scoreInputValue(row, "card")
       };
     });
 
@@ -2749,6 +2882,7 @@ async function saveScore(event) {
       body: {
         homeScore,
         awayScore,
+        mvpPlayerId: els.scoreMvpInput.value || null,
         scores,
         markFinished: true
       }
@@ -3012,6 +3146,25 @@ function bindEvents() {
   els.playerResetBtn.addEventListener("click", resetPlayerForm);
   els.teamForm.addEventListener("submit", saveTeam);
   els.clubForm.addEventListener("submit", saveClub);
+  els.clubBadgeInput.addEventListener("change", async () => {
+    try {
+      state.clubBadgeDataUrl = await readClubBadgeFile(els.clubBadgeInput.files[0]);
+      els.clubBadgeRemoveInput.checked = false;
+      renderClubBadgeFormPreview();
+    } catch (error) {
+      state.clubBadgeDataUrl = "";
+      els.clubBadgeInput.value = "";
+      renderClubBadgeFormPreview();
+      showToast(error.message, "error");
+    }
+  });
+  els.clubBadgeRemoveInput.addEventListener("change", () => {
+    if (els.clubBadgeRemoveInput.checked) {
+      state.clubBadgeDataUrl = "";
+      els.clubBadgeInput.value = "";
+    }
+    renderClubBadgeFormPreview();
+  });
   els.newsForm.addEventListener("submit", saveNews);
   els.newsResetBtn.addEventListener("click", resetNewsForm);
   els.gameweekForm.addEventListener("submit", saveGameweek);
@@ -3023,6 +3176,7 @@ function bindEvents() {
   els.scoreMatchInput.addEventListener("change", renderScorePlayers);
   els.scoreHomeInput.addEventListener("input", updateScorePreviews);
   els.scoreAwayInput.addEventListener("input", updateScorePreviews);
+  els.scoreMvpInput.addEventListener("change", updateScorePreviews);
   els.scorePlayersList.addEventListener("input", updateScorePreviews);
   els.scorePlayersList.addEventListener("change", updateScorePreviews);
   $("#adminView").addEventListener("click", async (event) => {

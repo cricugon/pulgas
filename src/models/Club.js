@@ -6,7 +6,11 @@ const clubSchema = new mongoose.Schema(
     shortName: { type: String, required: true, trim: true, uppercase: true, maxlength: 5 },
     city: { type: String, trim: true, default: "" },
     primaryColor: { type: String, trim: true, default: "#1d4ed8" },
-    secondaryColor: { type: String, trim: true, default: "#ffffff" }
+    secondaryColor: { type: String, trim: true, default: "#ffffff" },
+    badgeData: { type: Buffer, select: false },
+    badgeContentType: { type: String, trim: true, default: "" },
+    badgeFilename: { type: String, trim: true, default: "" },
+    badgeUpdatedAt: { type: Date, default: null }
   },
   { timestamps: true }
 );

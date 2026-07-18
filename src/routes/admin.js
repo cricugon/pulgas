@@ -8,6 +8,7 @@ import { Player } from "../models/Player.js";
 import { getLeagueSettings } from "../models/Settings.js";
 import { User } from "../models/User.js";
 import { LeagueBackup } from "../models/LeagueBackup.js";
+import { MundoArticle } from "../models/MundoArticle.js";
 import { MundoPlayerStatus } from "../models/MundoPlayerStatus.js";
 import { MundoPrediction } from "../models/MundoPrediction.js";
 import { createLeagueBackup, restoreLeagueBackup } from "../services/backups.js";
@@ -17,6 +18,7 @@ import { matchLabel, publishNews } from "../services/news.js";
 import {
   calculatePlayerMatchPoints,
   lockGameweekLineups,
+  normalizeScoreCard,
   normalizeScoreStat,
   recalculateGameweek
 } from "../services/scoring.js";
@@ -24,6 +26,24 @@ import {
 export const adminRouter = express.Router();
 
 adminRouter.use(requireAuth, requireAdmin);
+
+const CLUB_BADGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const CLUB_BADGE_MAX_BYTES = 2 * 1024 * 1024;
+
+function parseClubBadgeDataUrl(value) {
+  if (!value) return null;
+  const match = String(value).match(/^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i);
+  if (!match || !CLUB_BADGE_TYPES.has(match[1].toLowerCase())) {
+    throw new Error("El escudo debe ser JPG, PNG o WEBP.");
+  }
+
+  const data = Buffer.from(match[2], "base64");
+  if (!data.length || data.length > CLUB_BADGE_MAX_BYTES) {
+    throw new Error("El escudo no puede superar 2 MB.");
+  }
+
+  return { data, contentType: match[1].toLowerCase() };
+}
 
 function formatEuro(value = 0) {
   return new Intl.NumberFormat("es-ES", {
@@ -39,12 +59,16 @@ function gameweekMatchCount(gameweek) {
 }
 
 async function publishGameweekStatusNews(gameweek, status) {
+  const gameweekId = gameweek._id.toString();
+
   if (status === "live") {
     await publishNews({
       type: "gameweek_started",
       title: `${gameweek.name} esta en juego`,
       body: `La jornada ha comenzado con ${gameweekMatchCount(gameweek)}. Las alineaciones quedan bloqueadas.`,
-      metadata: { gameweekId: gameweek._id, number: gameweek.number }
+      metadata: { gameweekId: gameweek._id, number: gameweek.number },
+      eventKey: `gameweek:${gameweekId}:started`,
+      dedupeFilter: { type: "gameweek_started", "metadata.gameweekId": gameweek._id }
     });
   }
 
@@ -53,7 +77,9 @@ async function publishGameweekStatusNews(gameweek, status) {
       type: "gameweek_finished",
       title: `${gameweek.name} finalizada`,
       body: "La clasificacion total ya refleja los puntos de esta jornada.",
-      metadata: { gameweekId: gameweek._id, number: gameweek.number }
+      metadata: { gameweekId: gameweek._id, number: gameweek.number },
+      eventKey: `gameweek:${gameweekId}:finished`,
+      dedupeFilter: { type: "gameweek_finished", "metadata.gameweekId": gameweek._id }
     });
   }
 }
@@ -61,12 +87,20 @@ async function publishGameweekStatusNews(gameweek, status) {
 async function publishMatchScoresNews(gameweek, match) {
   if (!match) return;
   const playedCount = (match.playerScores || []).filter((score) => score.played !== false).length;
+  const gameweekId = gameweek._id.toString();
+  const matchId = match._id.toString();
 
   await publishNews({
     type: "match_scored",
     title: `Puntuaciones publicadas: ${matchLabel(match)}`,
     body: `${gameweek.name} ya tiene ${playedCount} jugadores puntuados para este partido.`,
-    metadata: { gameweekId: gameweek._id, matchId: match._id }
+    metadata: { gameweekId: gameweek._id, matchId: match._id },
+    eventKey: `gameweek:${gameweekId}:match:${matchId}:scored`,
+    dedupeFilter: {
+      type: "match_scored",
+      "metadata.gameweekId": gameweek._id,
+      "metadata.matchId": match._id
+    }
   });
 }
 
@@ -100,8 +134,9 @@ function normalizeScoreInput(score) {
   const assists = normalizeScoreStat(score.assists);
   const penaltySaves = normalizeScoreStat(score.penaltySaves);
   const picas = normalizeScoreStat(score.picas, { max: 3 });
+  const card = normalizeScoreCard(score.card);
 
-  if ([commonGoals, specialGoals, assists, penaltySaves, picas].some((value) => value === null)) {
+  if ([commonGoals, specialGoals, assists, penaltySaves, picas, card].some((value) => value === null)) {
     return null;
   }
 
@@ -113,6 +148,7 @@ function normalizeScoreInput(score) {
     assists,
     penaltySaves,
     picas,
+    card,
     note: String(score.note || "").trim()
   };
 }
@@ -357,6 +393,12 @@ adminRouter.delete("/players/:id", async (req, res) => {
   await User.updateMany({}, { $pull: { squad: player._id } });
   await Lineup.updateMany({}, { $pull: { players: player._id } });
   await Gameweek.updateMany({}, { $pull: { "matches.$[].playerScores": { player: player._id } } });
+  await Gameweek.updateMany(
+    { "matches.mvp": player._id },
+    { $set: { "matches.$[match].mvp": null } },
+    { arrayFilters: [{ "match.mvp": player._id }] }
+  );
+  await MundoArticle.updateMany({ relatedPlayer: player._id }, { $set: { relatedPlayer: null } });
   await MundoPlayerStatus.deleteOne({ player: player._id });
   await MundoPrediction.deleteMany({
     $or: [
@@ -375,12 +417,19 @@ adminRouter.get("/clubs", async (_req, res) => {
 
 adminRouter.post("/clubs", async (req, res) => {
   try {
+    const badge = parseClubBadgeDataUrl(req.body.badgeDataUrl);
     const club = await Club.create({
       name: req.body.name,
       shortName: req.body.shortName,
       city: req.body.city || "",
       primaryColor: req.body.primaryColor || "#1d4ed8",
-      secondaryColor: req.body.secondaryColor || "#ffffff"
+      secondaryColor: req.body.secondaryColor || "#ffffff",
+      ...(badge ? {
+        badgeData: badge.data,
+        badgeContentType: badge.contentType,
+        badgeFilename: String(req.body.badgeFilename || ""),
+        badgeUpdatedAt: new Date()
+      } : {})
     });
     res.status(201).json({ message: "Club creado.", club });
   } catch (error) {
@@ -390,6 +439,17 @@ adminRouter.post("/clubs", async (req, res) => {
 
 adminRouter.put("/clubs/:id", async (req, res) => {
   try {
+    const badge = parseClubBadgeDataUrl(req.body.badgeDataUrl);
+    const badgeUpdate = badge
+      ? {
+          badgeData: badge.data,
+          badgeContentType: badge.contentType,
+          badgeFilename: String(req.body.badgeFilename || ""),
+          badgeUpdatedAt: new Date()
+        }
+      : req.body.removeBadge
+        ? { badgeData: null, badgeContentType: "", badgeFilename: "", badgeUpdatedAt: null }
+        : {};
     const club = await Club.findByIdAndUpdate(
       req.params.id,
       {
@@ -397,7 +457,8 @@ adminRouter.put("/clubs/:id", async (req, res) => {
         shortName: req.body.shortName,
         city: req.body.city || "",
         primaryColor: req.body.primaryColor || "#1d4ed8",
-        secondaryColor: req.body.secondaryColor || "#ffffff"
+        secondaryColor: req.body.secondaryColor || "#ffffff",
+        ...badgeUpdate
       },
       { new: true, runValidators: true }
     );
@@ -738,6 +799,15 @@ adminRouter.post("/gameweeks/:id/matches/:matchId/scores", async (req, res) => {
     return res.status(400).json({ message: "La lista de jugadores contiene repetidos o no validos." });
   }
 
+  const mvpPlayerId = String(req.body.mvpPlayerId || "").trim();
+  const mvpScore = mvpPlayerId ? scores.find((score) => score.playerId === mvpPlayerId) : null;
+  if (mvpPlayerId && !mvpScore) {
+    return res.status(400).json({ message: "El MVP debe ser un jugador de este partido." });
+  }
+  if (mvpScore && !mvpScore.played) {
+    return res.status(400).json({ message: "El MVP debe estar marcado como jugador participante." });
+  }
+
   const players = await Player.find({ _id: { $in: uniquePlayerIds } }).select("_id club position");
   if (players.length !== uniquePlayerIds.length) {
     return res.status(400).json({ message: "Alguno de los jugadores no existe." });
@@ -752,6 +822,7 @@ adminRouter.post("/gameweeks/:id/matches/:matchId/scores", async (req, res) => {
   const playerById = new Map(players.map((player) => [player._id.toString(), player]));
   match.homeScore = homeScore;
   match.awayScore = awayScore;
+  match.mvp = mvpPlayerId || null;
   match.playerScores = scores.map((score) => {
     const player = playerById.get(score.playerId);
     const stats = {
@@ -760,7 +831,9 @@ adminRouter.post("/gameweeks/:id/matches/:matchId/scores", async (req, res) => {
       specialGoals: score.specialGoals,
       assists: score.assists,
       penaltySaves: score.penaltySaves,
-      picas: score.picas
+      picas: score.picas,
+      card: score.card,
+      isMvp: score.playerId === mvpPlayerId
     };
 
     return {

@@ -16,7 +16,12 @@ import { resetLeague } from "../services/leagueReset.js";
 import { updateMarketValuesAfterGameweek } from "../services/marketValues.js";
 import { optimizePlayerPhoto } from "../services/imageOptimization.js";
 import { updatePlayerFormsAfterGameweek } from "../services/playerForm.js";
-import { buildGameweekStandings, matchLabel, publishNews } from "../services/news.js";
+import {
+  buildGameweekStandings,
+  matchLabel,
+  publishGameweekBestSevenNews,
+  publishNews
+} from "../services/news.js";
 import {
   calculatePlayerMatchPoints,
   lockGameweekLineups,
@@ -170,6 +175,7 @@ async function publishGameweekStatusNews(gameweek, status) {
       dedupeFilter: { type: "gameweek_finished", "metadata.gameweekId": gameweek._id },
       updateExisting: true
     });
+    await publishGameweekBestSevenNews(gameweek);
   }
 }
 
@@ -335,7 +341,7 @@ function newsPayload(req, existingNews = null) {
   const title = String(req.body.title || "").trim();
   const body = String(req.body.body || "").trim();
   const pinned = Boolean(req.body.pinned);
-  const validTypes = ["gameweek_started", "gameweek_finished", "match_scored", "player_created", "team_registered", "system"];
+  const validTypes = ["gameweek_started", "gameweek_finished", "gameweek_best_seven", "match_scored", "player_created", "team_registered", "system"];
   const type = validTypes.includes(req.body.type) ? req.body.type : existingNews?.type || "system";
   const wasPinned = Boolean(existingNews?.pinned);
 

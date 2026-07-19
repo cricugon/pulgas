@@ -736,6 +736,7 @@ function renderShell() {
 const NEWS_LABELS = {
   gameweek_started: "Jornada",
   gameweek_finished: "Final",
+  gameweek_best_seven: "7 ideal",
   match_scored: "Puntos",
   player_created: "Jugador",
   team_registered: "Equipo",
@@ -811,10 +812,58 @@ function renderGameweekFinishedNews(item) {
   `;
 }
 
+function renderGameweekBestSevenNews(item) {
+  const players = Array.isArray(item.metadata?.players) ? item.metadata.players : [];
+  if (players.length !== 7) return "";
+
+  const formation = String(item.metadata?.formation || "");
+  const totalPoints = Number(item.metadata?.totalPoints || 0);
+  const rows = ["DEL", "MED", "DEF", "POR"]
+    .map((position) => players.filter((player) => player.position === position))
+    .filter((row) => row.length);
+
+  return `
+    <article class="news-item news-best-seven ${item.pinned ? "pinned" : ""}">
+      <header class="news-best-seven-header">
+        <span class="news-type">7 ideal</span>
+        <div class="news-finish-copy">
+          <strong>${escapeHtml(item.title)}${item.pinned ? ` <span class="news-pin">Fijada</span>` : ""}</strong>
+          <small>${formatDateTime(item.createdAt)}${item.body ? ` - ${escapeHtml(item.body)}` : ""}</small>
+        </div>
+        <div class="news-best-seven-summary">
+          <span>${escapeHtml(formation)}</span>
+          <strong>${formatPoints(totalPoints)}</strong>
+        </div>
+      </header>
+      <div class="news-best-seven-pitch" aria-label="Mejor siete de la jornada, formacion ${escapeHtml(formation)}">
+        ${rows.map((row) => `
+          <div class="news-best-seven-line count-${Math.min(row.length, 4)}">
+            ${row.map((player) => `
+              <div class="news-best-seven-player" title="${escapeHtml(`${player.name || "Jugador"}, ${formatPoints(player.points)}`)}">
+                <div class="news-best-seven-player-top">
+                  ${compactPlayerAvatar(player, "news-best-seven-avatar")}
+                  ${positionBadge(player.position, { compact: true })}
+                </div>
+                <strong>${escapeHtml(player.name || "Jugador")}</strong>
+                <small>${escapeHtml(player.club?.shortName || player.club?.name || "Sin club")}</small>
+                <b class="${Number(player.points || 0) > 0 ? "positive" : Number(player.points || 0) < 0 ? "negative" : "stable"}">${formatPoints(player.points)}</b>
+              </div>
+            `).join("")}
+          </div>
+        `).join("")}
+      </div>
+    </article>
+  `;
+}
+
 function renderNewsItem(item) {
   if (item.type === "gameweek_finished") {
     const finishedNews = renderGameweekFinishedNews(item);
     if (finishedNews) return finishedNews;
+  }
+  if (item.type === "gameweek_best_seven") {
+    const bestSevenNews = renderGameweekBestSevenNews(item);
+    if (bestSevenNews) return bestSevenNews;
   }
 
   const label = NEWS_LABELS[item.type] || "Liga";

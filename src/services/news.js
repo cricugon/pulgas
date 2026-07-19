@@ -1,4 +1,107 @@
 import { NewsItem } from "../models/NewsItem.js";
+import { generateFormations, parseFormation } from "./formations.js";
+
+const BEST_SEVEN_POSITIONS = ["POR", "DEF", "MED", "DEL"];
+
+function documentId(value) {
+  return String(value?._id || value || "");
+}
+
+function playerScoreRow(score, clubLookup) {
+  const player = score?.player;
+  if (!player?.name || !player?.position || !BEST_SEVEN_POSITIONS.includes(player.position)) return null;
+
+  const club = clubLookup.get(documentId(player.club));
+  return {
+    _id: player._id,
+    name: String(player.name),
+    position: player.position,
+    points: Number(score.points || 0),
+    club: club ? {
+      _id: club._id,
+      name: club.name,
+      shortName: club.shortName,
+      primaryColor: club.primaryColor,
+      badgeContentType: club.badgeContentType,
+      badgeUpdatedAt: club.badgeUpdatedAt
+    } : null,
+    photoContentType: player.photoContentType || "",
+    photoUpdatedAt: player.photoUpdatedAt || null
+  };
+}
+
+function compareBestSevenPlayers(left, right) {
+  return right.points - left.points || left.name.localeCompare(right.name, "es");
+}
+
+export function buildGameweekBestSeven(gameweek) {
+  const clubLookup = new Map();
+  for (const match of gameweek?.matches || []) {
+    for (const club of [match.homeClub, match.awayClub]) {
+      if (club?._id) clubLookup.set(documentId(club), club);
+    }
+  }
+
+  const playersById = new Map();
+  for (const match of gameweek?.matches || []) {
+    for (const score of match.playerScores || []) {
+      if (score.played !== true) continue;
+      const row = playerScoreRow(score, clubLookup);
+      if (!row?._id) continue;
+
+      const id = documentId(row._id);
+      const existing = playersById.get(id);
+      if (existing) existing.points += row.points;
+      else playersById.set(id, row);
+    }
+  }
+
+  const grouped = Object.fromEntries(BEST_SEVEN_POSITIONS.map((position) => [position, []]));
+  for (const player of playersById.values()) grouped[player.position].push(player);
+  for (const players of Object.values(grouped)) players.sort(compareBestSevenPlayers);
+
+  let best = null;
+  for (const formation of generateFormations()) {
+    const counts = parseFormation(formation);
+    const players = BEST_SEVEN_POSITIONS.flatMap((position) => grouped[position].slice(0, counts[position]));
+    if (players.length !== 7) continue;
+
+    const candidate = {
+      formation,
+      totalPoints: players.reduce((total, player) => total + player.points, 0),
+      players
+    };
+    if (!best
+      || candidate.totalPoints > best.totalPoints
+      || (candidate.totalPoints === best.totalPoints && candidate.formation.localeCompare(best.formation) < 0)) {
+      best = candidate;
+    }
+  }
+
+  return best;
+}
+
+export async function publishGameweekBestSevenNews(gameweek) {
+  const bestSeven = buildGameweekBestSeven(gameweek);
+  if (!bestSeven) return null;
+
+  const gameweekId = documentId(gameweek);
+  return publishNews({
+    type: "gameweek_best_seven",
+    title: `El 7 ideal de ${gameweek.name}`,
+    body: `La formacion ${bestSeven.formation} reune a los jugadores mas destacados y suma ${bestSeven.totalPoints} puntos.`,
+    metadata: {
+      gameweekId: gameweek._id,
+      number: gameweek.number,
+      formation: bestSeven.formation,
+      totalPoints: bestSeven.totalPoints,
+      players: bestSeven.players
+    },
+    eventKey: `gameweek:${gameweekId}:best-seven`,
+    dedupeFilter: { type: "gameweek_best_seven", "metadata.gameweekId": gameweek._id },
+    updateExisting: true
+  });
+}
 
 export async function publishNews({
   type = "system",

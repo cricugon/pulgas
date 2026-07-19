@@ -1032,8 +1032,172 @@ textarea:focus {
   color: var(--muted);
 }
 
+.news-best-seven {
+  display: block;
+  overflow: hidden;
+  padding: 0;
+  border-color: rgba(80, 156, 255, 0.42);
+  background: #06101e;
+}
+
+.news-best-seven-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 14px;
+  border-bottom: 1px solid rgba(151, 181, 255, 0.18);
+  background: linear-gradient(135deg, rgba(47, 124, 255, 0.2), rgba(6, 16, 30, 0.96));
+}
+
+.news-best-seven-summary {
+  display: grid;
+  min-width: 72px;
+  justify-items: end;
+  gap: 3px;
+}
+
+.news-best-seven-summary span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.news-best-seven-summary strong {
+  color: var(--cyan);
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.news-best-seven-pitch {
+  position: relative;
+  display: grid;
+  min-height: 470px;
+  padding: 22px 10px;
+  overflow: hidden;
+  border: 8px solid #06101e;
+  background-color: #092c48;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.018) 0,
+    rgba(255, 255, 255, 0.018) 12.5%,
+    transparent 12.5%,
+    transparent 25%
+  );
+  box-shadow: inset 0 0 0 2px rgba(206, 231, 255, 0.34);
+}
+
+.news-best-seven-pitch::before {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 2px;
+  content: "";
+  background: rgba(206, 231, 255, 0.28);
+}
+
+.news-best-seven-pitch::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 98px;
+  height: 98px;
+  border: 2px solid rgba(206, 231, 255, 0.28);
+  border-radius: 50%;
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.news-best-seven-line {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 5px;
+  align-items: center;
+}
+
+.news-best-seven-line.count-1 { grid-template-columns: minmax(0, 1fr); }
+.news-best-seven-line.count-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.news-best-seven-line.count-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.news-best-seven-line.count-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.news-best-seven-player {
+  display: grid;
+  min-width: 0;
+  justify-items: center;
+  align-content: center;
+  text-align: center;
+}
+
+.news-best-seven-player-top {
+  position: relative;
+  display: inline-flex;
+  margin-bottom: 4px;
+}
+
+.news-best-seven-avatar {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.76);
+  border-radius: 50%;
+  color: #ffffff;
+  background: #123c68;
+  font-size: 0.66rem;
+  font-weight: 900;
+}
+
+.news-best-seven-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.news-best-seven-player .position-badge {
+  position: absolute;
+  right: -17px;
+  bottom: -2px;
+  min-width: 30px;
+  min-height: 18px;
+  padding: 2px 4px;
+  font-size: 0.54rem;
+}
+
+.news-best-seven-player > strong {
+  display: -webkit-box;
+  min-height: 29px;
+  max-width: 100%;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: #ffffff;
+  font-size: 0.68rem;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.news-best-seven-player > small {
+  margin-top: 2px;
+  color: #9fbfe2;
+  font-size: 0.58rem;
+  font-weight: 800;
+}
+
+.news-best-seven-player > b {
+  margin-top: 3px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(2, 8, 21, 0.82);
+  font-size: 0.64rem;
+  white-space: nowrap;
+}
+
 @media (max-width: 520px) {
-  .news-finish-header {
+  .news-finish-header,
+  .news-best-seven-header {
     grid-template-columns: auto minmax(0, 1fr);
     gap: 9px;
     padding: 11px;
@@ -1042,6 +1206,15 @@ textarea:focus {
   .news-finish-count {
     grid-column: 2;
     justify-self: start;
+  }
+
+  .news-best-seven-summary {
+    grid-column: 2;
+    grid-auto-flow: column;
+    justify-content: start;
+    justify-items: start;
+    align-items: center;
+    gap: 8px;
   }
 
   .news-podium {
@@ -1057,6 +1230,21 @@ textarea:focus {
   .news-top-ranking {
     padding-right: 10px;
     padding-left: 10px;
+  }
+
+  .news-best-seven-pitch {
+    min-height: 440px;
+    padding-right: 5px;
+    padding-left: 5px;
+  }
+
+  .news-best-seven-avatar {
+    width: 34px;
+    height: 34px;
+  }
+
+  .news-best-seven-player > strong {
+    font-size: 0.62rem;
   }
 }
 

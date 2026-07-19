@@ -4,7 +4,7 @@ const newsItemSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ["gameweek_started", "gameweek_finished", "match_scored", "player_created", "team_registered", "system"],
+      enum: ["gameweek_started", "gameweek_finished", "gameweek_best_seven", "match_scored", "player_created", "team_registered", "system"],
       default: "system"
     },
     title: { type: String, required: true, trim: true },

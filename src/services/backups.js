@@ -11,12 +11,12 @@ import { Player } from "../models/Player.js";
 import { Settings, getLeagueSettings } from "../models/Settings.js";
 import { User } from "../models/User.js";
 
-const BACKUP_SCHEMA_VERSION = 5;
+const BACKUP_SCHEMA_VERSION = 6;
 const PRESERVED_USER_ACCOUNT_FIELDS = new Set(["_id", "email", "passwordHash", "createdAt", "updatedAt", "__v"]);
 const BACKUP_COLLECTIONS = [
   { key: "users", Model: User },
   { key: "clubs", Model: Club, select: "+badgeData" },
-  { key: "players", Model: Player },
+  { key: "players", Model: Player, select: "+photoData" },
   { key: "gameweeks", Model: Gameweek },
   { key: "lineups", Model: Lineup },
   { key: "settings", Model: Settings, select: "+promoImageData" },

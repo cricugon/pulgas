@@ -15,6 +15,13 @@ const playerSchema = new mongoose.Schema(
     marketValueUpdatedAt: { type: Date, default: null },
     totalPoints: { type: Number, default: 0 },
     form: { type: Number, default: 50, min: 0, max: 100 },
+    photoData: { type: Buffer, select: false },
+    photoContentType: { type: String, trim: true, default: "" },
+    photoFilename: { type: String, trim: true, default: "" },
+    photoUpdatedAt: { type: Date, default: null },
+    photoWidth: { type: Number, min: 1, default: null },
+    photoHeight: { type: Number, min: 1, default: null },
+    photoSizeBytes: { type: Number, min: 0, default: null },
     status: {
       type: String,
       enum: ["available", "injured", "suspended"],
@@ -27,5 +34,11 @@ const playerSchema = new mongoose.Schema(
 );
 
 playerSchema.index({ name: 1, club: 1 }, { unique: true });
+playerSchema.set("toJSON", {
+  transform: (_document, result) => {
+    delete result.photoData;
+    return result;
+  }
+});
 
 export const Player = mongoose.model("Player", playerSchema);

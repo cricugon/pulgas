@@ -14,6 +14,8 @@ import { MundoPrediction } from "../models/MundoPrediction.js";
 import { createLeagueBackup, restoreLeagueBackup } from "../services/backups.js";
 import { resetLeague } from "../services/leagueReset.js";
 import { updateMarketValuesAfterGameweek } from "../services/marketValues.js";
+import { optimizePlayerPhoto } from "../services/imageOptimization.js";
+import { updatePlayerFormsAfterGameweek } from "../services/playerForm.js";
 import { matchLabel, publishNews } from "../services/news.js";
 import {
   calculatePlayerMatchPoints,
@@ -31,6 +33,8 @@ const CLUB_BADGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const CLUB_BADGE_MAX_BYTES = 2 * 1024 * 1024;
 const PROMO_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const PROMO_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const PLAYER_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const PLAYER_PHOTO_MAX_BYTES = 6 * 1024 * 1024;
 
 function parseClubBadgeDataUrl(value) {
   if (!value) return null;
@@ -60,6 +64,51 @@ function parsePromoImageDataUrl(value) {
   }
 
   return { data, contentType: match[1].toLowerCase() };
+}
+
+function parsePlayerPhotoDataUrl(value) {
+  if (!value) return null;
+  const match = String(value).match(/^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i);
+  if (!match || !PLAYER_PHOTO_TYPES.has(match[1].toLowerCase())) {
+    throw new Error("La foto debe ser JPG, PNG o WEBP.");
+  }
+
+  const data = Buffer.from(match[2], "base64");
+  if (!data.length || data.length > PLAYER_PHOTO_MAX_BYTES) {
+    throw new Error("La foto no puede superar 6 MB.");
+  }
+
+  return { data };
+}
+
+async function playerPhotoUpdate(req) {
+  const source = parsePlayerPhotoDataUrl(req.body.photoDataUrl);
+  if (source) {
+    const photo = await optimizePlayerPhoto(source);
+    return {
+      photoData: photo.data,
+      photoContentType: photo.contentType,
+      photoFilename: String(req.body.photoFilename || ""),
+      photoUpdatedAt: new Date(),
+      photoWidth: photo.width,
+      photoHeight: photo.height,
+      photoSizeBytes: photo.sizeBytes
+    };
+  }
+
+  if (req.body.removePhoto) {
+    return {
+      photoData: null,
+      photoContentType: "",
+      photoFilename: "",
+      photoUpdatedAt: null,
+      photoWidth: null,
+      photoHeight: null,
+      photoSizeBytes: null
+    };
+  }
+
+  return {};
 }
 
 function serializePromoSettings(settings) {
@@ -415,15 +464,16 @@ adminRouter.get("/players", async (_req, res) => {
 
 adminRouter.post("/players", async (req, res) => {
   try {
+    const photoUpdate = await playerPhotoUpdate(req);
     const player = await Player.create({
       name: req.body.name,
       position: req.body.position,
       club: req.body.club,
       marketValue: Number(req.body.marketValue),
-      form: Number(req.body.form || 50),
       status: req.body.status || "available",
       shirtNumber: Number(req.body.shirtNumber || 0),
-      bio: req.body.bio || ""
+      bio: req.body.bio || "",
+      ...photoUpdate
     });
     await player.populate("club");
     await publishNews({
@@ -433,7 +483,9 @@ adminRouter.post("/players", async (req, res) => {
       metadata: { playerId: player._id, clubId: player.club?._id || player.club }
     });
 
-    res.status(201).json({ message: "Jugador creado.", player });
+    const responsePlayer = player.toObject();
+    delete responsePlayer.photoData;
+    res.status(201).json({ message: "Jugador creado.", player: responsePlayer });
   } catch (error) {
     res.status(400).json({ message: "No se pudo crear el jugador.", detail: error.message });
   }
@@ -441,15 +493,16 @@ adminRouter.post("/players", async (req, res) => {
 
 adminRouter.put("/players/:id", async (req, res) => {
   try {
+    const photoUpdate = await playerPhotoUpdate(req);
     const update = {
       name: req.body.name,
       position: req.body.position,
       club: req.body.club,
       marketValue: Number(req.body.marketValue),
-      form: Number(req.body.form || 50),
       status: req.body.status || "available",
       shirtNumber: Number(req.body.shirtNumber || 0),
-      bio: req.body.bio || ""
+      bio: req.body.bio || "",
+      ...photoUpdate
     };
 
     const player = await Player.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
@@ -684,10 +737,9 @@ adminRouter.put("/gameweeks/:id", async (req, res) => {
     if (requestedStatus === "live" || requestedStatus === "finished" || requestedStatus === "draft") {
       await recalculateGameweek(gameweek._id);
     }
-    const marketValueUpdate =
-      requestedStatus === "finished" && previousStatus !== "finished"
-        ? await updateMarketValuesAfterGameweek(gameweek._id)
-        : null;
+    const shouldFinalize = requestedStatus === "finished" && previousStatus !== "finished";
+    const formUpdate = shouldFinalize ? await updatePlayerFormsAfterGameweek(gameweek._id) : null;
+    const marketValueUpdate = shouldFinalize ? await updateMarketValuesAfterGameweek(gameweek._id) : null;
 
     const populated = await Gameweek.findById(gameweek._id).populate(
       "matches.homeClub matches.awayClub matches.playerScores.player"
@@ -697,7 +749,7 @@ adminRouter.put("/gameweeks/:id", async (req, res) => {
     }
     await publishMarketValuesNews(marketValueUpdate);
 
-    res.json({ message: "Jornada actualizada.", gameweek: populated, marketValueUpdate });
+    res.json({ message: "Jornada actualizada.", gameweek: populated, formUpdate, marketValueUpdate });
   } catch (error) {
     res.status(400).json({ message: "No se pudo actualizar la jornada.", detail: error.message });
   }
@@ -767,8 +819,9 @@ adminRouter.post("/gameweeks/:id/finish", async (req, res) => {
   });
   await gameweek.save();
   await recalculateGameweek(gameweek._id);
-  const marketValueUpdate =
-    previousStatus !== "finished" ? await updateMarketValuesAfterGameweek(gameweek._id) : null;
+  const shouldFinalize = previousStatus !== "finished";
+  const formUpdate = shouldFinalize ? await updatePlayerFormsAfterGameweek(gameweek._id) : null;
+  const marketValueUpdate = shouldFinalize ? await updateMarketValuesAfterGameweek(gameweek._id) : null;
 
   const populated = await Gameweek.findById(gameweek._id).populate(
     "matches.homeClub matches.awayClub matches.playerScores.player"
@@ -778,7 +831,7 @@ adminRouter.post("/gameweeks/:id/finish", async (req, res) => {
   }
   await publishMarketValuesNews(marketValueUpdate);
 
-  res.json({ message: "Jornada finalizada.", gameweek: populated, marketValueUpdate });
+  res.json({ message: "Jornada finalizada.", gameweek: populated, formUpdate, marketValueUpdate });
 });
 
 adminRouter.post("/gameweeks/:id/matches", async (req, res) => {

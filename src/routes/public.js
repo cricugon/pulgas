@@ -151,6 +151,21 @@ publicRouter.get("/players", async (req, res) => {
   res.json({ players });
 });
 
+publicRouter.get("/players/:id/photo", async (req, res) => {
+  try {
+    const player = await Player.findById(req.params.id).select("+photoData photoContentType photoUpdatedAt");
+    if (!player?.photoData?.length || !player.photoContentType) {
+      return res.status(404).json({ message: "Este jugador no tiene foto." });
+    }
+
+    res.set("Cache-Control", req.query.v ? "public, max-age=31536000, immutable" : "public, max-age=300");
+    res.type(player.photoContentType);
+    return res.send(player.photoData);
+  } catch {
+    return res.status(404).json({ message: "Foto de jugador no encontrada." });
+  }
+});
+
 publicRouter.get("/players/:id/stats", async (req, res) => {
   const player = await Player.findById(req.params.id).populate("club");
   if (!player) {

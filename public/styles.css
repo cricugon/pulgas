@@ -2323,6 +2323,94 @@ button.leader-row:hover {
   background: #aab7c9;
 }
 
+.sports-player-avatar.has-player-photo::before,
+.sports-profile-silhouette.has-player-photo::before {
+  display: none;
+}
+
+.sports-player-avatar.has-player-photo img,
+.sports-profile-silhouette.has-player-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+
+.avatar.player-photo-avatar,
+.person-icon.player-photo-avatar,
+.admin-player-avatar.player-photo-avatar {
+  overflow: hidden;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.player-photo-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+
+.admin-player-avatar {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(68, 224, 255, 0.3);
+  border-radius: 8px;
+  color: var(--cyan);
+  background: rgba(68, 224, 255, 0.08);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.admin-player-row {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.player-photo-upload {
+  display: grid;
+  gap: 6px;
+}
+
+.player-photo-upload small {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.player-photo-preview {
+  display: grid;
+  width: 120px;
+  aspect-ratio: 4 / 5;
+  place-items: center;
+  overflow: hidden;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.player-photo-preview.has-image {
+  border-style: solid;
+}
+
+.player-photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+
+@media (max-width: 640px) {
+  .admin-player-row .row-actions {
+    grid-column: 2;
+  }
+}
+
 .sports-player-main > small {
   margin: 0 0 4px;
   color: var(--cyan);
@@ -3400,4 +3488,99 @@ body.promo-open {
   .promo-settings-row {
     grid-template-columns: 1fr;
   }
+}
+
+.player-form-indicator {
+  --form-color: #35d26f;
+  display: inline-grid;
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--form-color) 52%, transparent);
+  border-radius: 5px;
+  color: var(--form-color);
+  background: #03070d;
+  vertical-align: middle;
+  box-shadow: inset 0 0 12px color-mix(in srgb, var(--form-color) 10%, transparent);
+}
+
+.player-form-indicator i {
+  color: var(--form-color);
+  font-size: 1.25rem;
+  font-style: normal;
+  font-weight: 950;
+  line-height: 1;
+  text-shadow: 0 0 9px color-mix(in srgb, var(--form-color) 55%, transparent);
+}
+
+.player-form-indicator.form-very-up { --form-color: #ff4757; }
+.player-form-indicator.form-up { --form-color: #ffd43b; }
+.player-form-indicator.form-neutral { --form-color: #35d26f; }
+.player-form-indicator.form-down { --form-color: #31b7f1; }
+.player-form-indicator.form-very-down { --form-color: #a875ff; }
+
+.sports-player-meta .player-form-indicator {
+  min-height: 27px;
+  padding: 0;
+  color: var(--form-color);
+  background: #03070d;
+}
+
+.player-form-indicator.with-label {
+  display: inline-flex;
+  width: auto;
+  height: auto;
+  flex: 0 1 auto;
+  justify-content: flex-start;
+  gap: 9px;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.player-form-indicator.with-label i {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--form-color) 52%, transparent);
+  border-radius: 6px;
+  background: #03070d;
+  font-size: 1.75rem;
+}
+
+.player-form-indicator.with-label b {
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.15;
+  text-align: left;
+}
+
+.profile-stat > .player-form-indicator {
+  margin: 7px 0;
+}
+
+.lineup-picker-player-heading,
+.admin-player-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.lineup-picker-player-heading strong,
+.admin-player-heading strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.lineup-picker-player-heading .player-form-indicator,
+.admin-player-heading .player-form-indicator {
+  width: 23px;
+  height: 23px;
+  flex-basis: 23px;
 }

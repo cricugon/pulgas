@@ -463,12 +463,21 @@
                   </select>
                   <select id="playerClubInput" required></select>
                   <input id="playerValueInput" type="number" min="0" required placeholder="Valor" />
-                  <input id="playerFormInput" type="number" min="0" max="100" placeholder="Forma" />
                   <select id="playerStatusInput">
                     <option value="available">Disponible</option>
                     <option value="injured">Lesionado</option>
                     <option value="suspended">Sancionado</option>
                   </select>
+                  <label class="player-photo-upload">
+                    Foto del jugador
+                    <input id="playerPhotoInput" type="file" accept="image/jpeg,image/png,image/webp" />
+                    <small>JPG, PNG o WEBP, hasta 6 MB. Se comprimira automaticamente.</small>
+                  </label>
+                  <div id="playerPhotoPreview" class="player-photo-preview"><span>Sin foto</span></div>
+                  <label id="playerPhotoRemoveField" class="check-row hidden">
+                    <input id="playerPhotoRemoveInput" type="checkbox" />
+                    Quitar la foto actual
+                  </label>
                   <button class="primary-button" type="submit">Guardar jugador</button>
                   <button id="playerResetBtn" class="ghost-button" type="button">Limpiar</button>
                 </form>

@@ -29,6 +29,7 @@ const state = {
   historyGameweekDetails: {},
   playerStatsCache: {},
   clubBadgeDataUrl: "",
+  playerPhotoDataUrl: "",
   promoImageDataUrl: "",
   admin: {
     summary: null,
@@ -135,8 +136,11 @@ const els = {
   playerPositionInput: $("#playerPositionInput"),
   playerClubInput: $("#playerClubInput"),
   playerValueInput: $("#playerValueInput"),
-  playerFormInput: $("#playerFormInput"),
   playerStatusInput: $("#playerStatusInput"),
+  playerPhotoInput: $("#playerPhotoInput"),
+  playerPhotoPreview: $("#playerPhotoPreview"),
+  playerPhotoRemoveField: $("#playerPhotoRemoveField"),
+  playerPhotoRemoveInput: $("#playerPhotoRemoveInput"),
   playerResetBtn: $("#playerResetBtn"),
   adminPlayers: $("#adminPlayers"),
   teamForm: $("#teamForm"),
@@ -208,6 +212,13 @@ const MUNDO_STATUS_META = {
   doubt: { label: "Duda" },
   out: { label: "Baja" }
 };
+const PLAYER_FORM_META = [
+  { min: 88, key: "very-up", label: "Muy por encima de la media", icon: "&#8593;" },
+  { min: 63, key: "up", label: "Por encima de la media", icon: "&#8599;" },
+  { min: 38, key: "neutral", label: "En la media", icon: "&mdash;" },
+  { min: 13, key: "down", label: "Por debajo de la media", icon: "&#8600;" },
+  { min: Number.NEGATIVE_INFINITY, key: "very-down", label: "Muy por debajo de la media", icon: "&#8595;" }
+];
 
 function playerAvailability(player) {
   const rawStatus = player?.mundoStatus?.status;
@@ -217,6 +228,21 @@ function playerAvailability(player) {
     label: MUNDO_STATUS_META[status].label,
     note: String(player?.mundoStatus?.note || "").trim()
   };
+}
+
+function playerFormMeta(player) {
+  const value = Number(player?.form ?? 50);
+  return PLAYER_FORM_META.find((item) => value >= item.min) || PLAYER_FORM_META[2];
+}
+
+function playerFormIndicator(player, { withLabel = false } = {}) {
+  const meta = playerFormMeta(player);
+  return `
+    <span class="player-form-indicator form-${meta.key}${withLabel ? " with-label" : ""}" title="Forma: ${escapeHtml(meta.label)}" aria-label="Forma: ${escapeHtml(meta.label)}">
+      <i aria-hidden="true">${meta.icon}</i>
+      ${withLabel ? `<b>${escapeHtml(meta.label)}</b>` : ""}
+    </span>
+  `;
 }
 
 function generateFormations() {
@@ -388,6 +414,26 @@ function clubBadge(club, className = "club-badge") {
 function clubIdentity(club, { fullName = false, className = "match-club-identity" } = {}) {
   const label = fullName ? club?.name || club?.shortName : club?.shortName || club?.name;
   return `<span class="${className}">${clubBadge(club, "fixture-club-badge")}<strong>${escapeHtml(label || "Club")}</strong></span>`;
+}
+
+function playerPhotoUrl(player) {
+  if (!player?._id || !player.photoContentType || !player.photoUpdatedAt) return "";
+  const version = new Date(player.photoUpdatedAt).getTime();
+  return `/api/players/${encodeURIComponent(player._id)}/photo?v=${Number.isFinite(version) ? version : "latest"}`;
+}
+
+function playerPortrait(player, className) {
+  const imageUrl = playerPhotoUrl(player);
+  return imageUrl
+    ? `<div class="${className} has-player-photo"><img src="${escapeHtml(imageUrl)}" alt="Foto de ${escapeHtml(player.name)}" loading="lazy" decoding="async" /></div>`
+    : `<div class="${className}" aria-hidden="true"><span></span></div>`;
+}
+
+function compactPlayerAvatar(player, className = "avatar") {
+  const imageUrl = playerPhotoUrl(player);
+  return imageUrl
+    ? `<span class="${className} player-photo-avatar"><img src="${escapeHtml(imageUrl)}" alt="" loading="lazy" decoding="async" /></span>`
+    : `<span class="${className}">${initials(player?.name || "Jugador")}</span>`;
 }
 
 function stableMarketBadge(player) {
@@ -867,12 +913,13 @@ function renderPlayerCard(player, options = {}) {
           ${clubBadge(player.club)}
           ${positionBadge(player.position, { compact: true })}
         </div>
-        <div class="sports-player-avatar" aria-hidden="true"><span></span></div>
+        ${playerPortrait(player, "sports-player-avatar")}
         <div class="player-main sports-player-main">
           <small>${escapeHtml(player.club?.name || club)}</small>
           <strong>${escapeHtml(player.name)}</strong>
           <div class="sports-player-meta">
             <span class="market-player-status status-${availability.status}" title="${escapeHtml(availability.note || availability.label)}"><i aria-hidden="true"></i>${escapeHtml(availability.label)}</span>
+            ${playerFormIndicator(player)}
             <span class="market-player-points">${Number(player.totalPoints || 0)} pts</span>
             <span class="market-player-usage">${Number(player.lineupUsage || 0)} usos</span>
             <span class="market-player-efficiency">${valueEfficiency(player).toFixed(2)} pts/M</span>
@@ -890,11 +937,12 @@ function renderPlayerCard(player, options = {}) {
 
   return `
     <${tag} class="player-card" ${attrs}>
-      <div class="avatar">${initials(player.name)}</div>
+      ${compactPlayerAvatar(player)}
       <div class="player-main">
         <strong>${escapeHtml(player.name)}</strong>
         <small>${escapeHtml(player.position)} · ${escapeHtml(club)} · ${formatEuro(player.marketValue)} · ${player.totalPoints || 0} pts</small>
       </div>
+      ${playerFormIndicator(player)}
     </${tag}>
   `;
 }
@@ -1109,7 +1157,7 @@ function renderPlayerDetail(data) {
   els.playerDetailTitle.textContent = player.name;
   els.playerDetailBody.innerHTML = `
     <div class="player-detail-hero">
-      <div class="person-icon" aria-hidden="true">P</div>
+      ${compactPlayerAvatar(player, "person-icon")}
       <div>
         <strong>${escapeHtml(player.name)}</strong>
         ${marketChangeBadge(player)}
@@ -1170,7 +1218,7 @@ function renderSportsPlayerDetail(data) {
   els.playerDetailBody.innerHTML = `
     <section class="sports-profile-hero" style="--club-color:${escapeHtml(player.club?.primaryColor || "#2f7cff")}">
       <div class="sports-profile-club">${clubBadge(player.club, "profile-club-badge")}</div>
-      <div class="sports-profile-silhouette" aria-hidden="true"><span></span></div>
+      ${playerPortrait(player, "sports-profile-silhouette")}
       <div class="sports-profile-position">${positionBadge(player.position, { compact: true })}</div>
       <div class="sports-profile-copy">
         <small>${escapeHtml(club)}</small>
@@ -1202,7 +1250,7 @@ function renderProfileSummaryTab({ player, club, data, average, nextMatch, avail
         <article class="profile-stat primary"><small>Puntos totales</small><strong>${Number(data.summary.totalPoints || 0)}</strong><span>${average.toFixed(1)} de media</span></article>
         <article class="profile-stat"><small>Valor actual</small><strong>${formatEuro(player.marketValue)}</strong>${stableMarketBadge(player)}</article>
         <article class="profile-stat"><small>Usos oficiales</small><strong>${Number(data.summary.totalLineups || 0)}</strong><span>${Number(data.summary.scoredGameweeks || 0)} jornadas puntuando</span></article>
-        <article class="profile-stat"><small>Forma</small><strong>${Number(player.form || 0)}%</strong><span>${escapeHtml(POSITION_META[player.position]?.label || player.position)}</span></article>
+        <article class="profile-stat"><small>Forma</small>${playerFormIndicator(player, { withLabel: true })}<span>Calculada tras la ultima jornada</span></article>
       </div>
       ${nextMatch ? `
         <section class="profile-section">
@@ -1671,9 +1719,9 @@ function renderLineupPicker() {
 
           return `
             <button class="lineup-picker-option ${stateClass}" type="button" data-pick-lineup-player="${player._id}" ${disabled}>
-              <span class="avatar">${initials(player.name)}</span>
+              ${compactPlayerAvatar(player)}
               <span class="lineup-picker-main">
-                <strong>${escapeHtml(player.name)}</strong>
+                <span class="lineup-picker-player-heading"><strong>${escapeHtml(player.name)}</strong>${playerFormIndicator(player)}</span>
                 <small>${escapeHtml(club)} · ${escapeHtml(player.position)} · ${formatEuro(player.marketValue)} · ${player.totalPoints || 0} pts</small>
               </span>
               <span class="pill ${reasonClass}">${escapeHtml(itemState.reason)}</span>
@@ -2109,9 +2157,10 @@ function renderAdmin() {
   els.adminPlayers.innerHTML = state.admin.players
     .map(
       (player) => `
-      <article class="admin-row">
+      <article class="admin-row admin-player-row">
+        ${compactPlayerAvatar(player, "admin-player-avatar")}
         <div>
-          <strong>${escapeHtml(player.name)}</strong>
+          <span class="admin-player-heading"><strong>${escapeHtml(player.name)}</strong>${playerFormIndicator(player)}</span>
           <small>${player.position} · ${escapeHtml(player.club?.shortName || "")} · ${formatEuro(player.marketValue)} · ${player.totalPoints} pts · ${player.status}</small>
         </div>
         <div class="row-actions">
@@ -2555,8 +2604,10 @@ async function savePlayer(event) {
     position: els.playerPositionInput.value,
     club: els.playerClubInput.value,
     marketValue: Number(els.playerValueInput.value),
-    form: Number(els.playerFormInput.value || 50),
-    status: els.playerStatusInput.value
+    status: els.playerStatusInput.value,
+    photoDataUrl: state.playerPhotoDataUrl,
+    photoFilename: els.playerPhotoInput.files[0]?.name || "",
+    removePhoto: els.playerPhotoRemoveInput.checked
   };
 
   try {
@@ -2582,14 +2633,51 @@ function editPlayer(playerId) {
   els.playerPositionInput.value = player.position;
   els.playerClubInput.value = player.club?._id || player.club;
   els.playerValueInput.value = player.marketValue;
-  els.playerFormInput.value = player.form || 50;
   els.playerStatusInput.value = player.status;
+  state.playerPhotoDataUrl = "";
+  els.playerPhotoInput.value = "";
+  els.playerPhotoRemoveInput.checked = false;
+  els.playerPhotoRemoveField.classList.toggle("hidden", !player.photoContentType);
+  renderPlayerPhotoFormPreview();
   openAdminModal("player", "Editar jugador");
 }
 
 function resetPlayerForm() {
   els.playerForm.reset();
   els.playerIdInput.value = "";
+  state.playerPhotoDataUrl = "";
+  els.playerPhotoRemoveField.classList.add("hidden");
+  renderPlayerPhotoFormPreview();
+}
+
+function currentPlayerFormPlayer() {
+  return state.admin.players.find((player) => player._id === els.playerIdInput.value) || null;
+}
+
+function renderPlayerPhotoFormPreview() {
+  const player = currentPlayerFormPlayer();
+  const imageUrl = state.playerPhotoDataUrl || (!els.playerPhotoRemoveInput.checked ? playerPhotoUrl(player) : "");
+  els.playerPhotoPreview.innerHTML = imageUrl
+    ? `<img src="${escapeHtml(imageUrl)}" alt="Vista previa de la foto del jugador" />`
+    : `<span>${els.playerPhotoRemoveInput.checked ? "La foto se eliminara al guardar" : "Sin foto"}</span>`;
+  els.playerPhotoPreview.classList.toggle("has-image", Boolean(imageUrl));
+}
+
+function readPlayerPhotoFile(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) return resolve("");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      return reject(new Error("La foto debe ser JPG, PNG o WEBP."));
+    }
+    if (file.size > 6 * 1024 * 1024) {
+      return reject(new Error("La foto no puede superar 6 MB."));
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("No se pudo leer la foto."));
+    reader.readAsDataURL(file);
+  });
 }
 
 async function saveTeam(event) {
@@ -3318,6 +3406,25 @@ function bindEvents() {
   });
   els.playerForm.addEventListener("submit", savePlayer);
   els.playerResetBtn.addEventListener("click", resetPlayerForm);
+  els.playerPhotoInput.addEventListener("change", async () => {
+    try {
+      state.playerPhotoDataUrl = await readPlayerPhotoFile(els.playerPhotoInput.files[0]);
+      els.playerPhotoRemoveInput.checked = false;
+      renderPlayerPhotoFormPreview();
+    } catch (error) {
+      state.playerPhotoDataUrl = "";
+      els.playerPhotoInput.value = "";
+      renderPlayerPhotoFormPreview();
+      showToast(error.message, "error");
+    }
+  });
+  els.playerPhotoRemoveInput.addEventListener("change", () => {
+    if (els.playerPhotoRemoveInput.checked) {
+      state.playerPhotoDataUrl = "";
+      els.playerPhotoInput.value = "";
+    }
+    renderPlayerPhotoFormPreview();
+  });
   els.teamForm.addEventListener("submit", saveTeam);
   els.clubForm.addEventListener("submit", saveClub);
   els.clubBadgeInput.addEventListener("change", async () => {

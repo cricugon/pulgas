@@ -113,6 +113,19 @@ function clubName(club, fallback) {
   return club?.name || club?.shortName || fallback;
 }
 
+function playerPhotoUrl(player) {
+  if (!player?._id || !player.photoContentType || !player.photoUpdatedAt) return "";
+  const version = new Date(player.photoUpdatedAt).getTime();
+  return `/api/players/${encodeURIComponent(player._id)}/photo?v=${Number.isFinite(version) ? version : "latest"}`;
+}
+
+function playerAvatar(player) {
+  const imageUrl = playerPhotoUrl(player);
+  return imageUrl
+    ? `<span class="player-avatar has-photo"><img src="${escapeHtml(imageUrl)}" alt="" loading="lazy" decoding="async" /></span>`
+    : `<span class="player-avatar" aria-hidden="true">J</span>`;
+}
+
 function matchCard(gameweek, match) {
   const home = clubName(match.homeClub, "Local");
   const away = clubName(match.awayClub, "Visitante");
@@ -436,7 +449,7 @@ async function renderClub(id) {
     </div>
     ${players.length ? `<div class="roster-list">${players.map((player) => `
       <article class="roster-row">
-        <span class="player-avatar" aria-hidden="true">♟</span>
+        ${playerAvatar(player)}
         <div><strong>${escapeHtml(player.name)}</strong><small>${escapeHtml(player.position)}${player.shirtNumber ? ` · #${player.shirtNumber}` : ""}${player.mundoStatus?.note ? ` · ${escapeHtml(player.mundoStatus.note)}` : ""}</small></div>
         ${statusBadge(player.mundoStatus)}
       </article>

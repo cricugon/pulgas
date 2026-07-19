@@ -1,0 +1,2249 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simulación de mercado · Jornada 1</title>
+  <style>
+    :root { color-scheme: dark; --bg:#050914; --panel:#0a1324; --line:#20324d; --text:#edf5ff; --muted:#91a5bf; --blue:#4c8dff; --cyan:#45ddff; --up:#41df95; --down:#ff6577; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--text); background:var(--bg); font-family:Inter,Segoe UI,Arial,sans-serif; letter-spacing:0; }
+    main { width:min(1540px, 100%); margin:auto; padding:28px clamp(14px,3vw,40px) 60px; }
+    header.hero { padding:26px 0 24px; border-bottom:1px solid var(--line); }
+    .eyebrow { color:var(--cyan); font-size:.74rem; font-weight:900; text-transform:uppercase; }
+    h1 { margin:8px 0; font-size:clamp(1.8rem,4vw,3.4rem); line-height:1; }
+    .hero p { max-width:860px; margin:10px 0 0; color:var(--muted); line-height:1.55; }
+    .notice { display:flex; gap:10px; align-items:flex-start; margin-top:18px; padding:12px 14px; border-left:3px solid var(--cyan); background:#0a1930; color:#cfe6ff; font-size:.82rem; }
+    .kpis { display:grid; grid-template-columns:repeat(4,minmax(150px,1fr)); gap:1px; margin:22px 0; border:1px solid var(--line); background:var(--line); }
+    .kpi { min-height:100px; padding:16px; background:var(--panel); }
+    .kpi small,.metric small,.player-name small,.mover small { display:block; color:var(--muted); font-size:.67rem; }
+    .kpi strong { display:block; margin-top:10px; font-size:1.15rem; }
+    .up { color:var(--up); } .down { color:var(--down); } .stable { color:var(--muted); }
+    .methodology { margin:0 0 24px; border-top:2px solid var(--cyan); background:var(--panel); }
+    .methodology-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; padding:16px; border-bottom:1px solid var(--line); }
+    .methodology-header h2 { margin:0 0 5px; font-size:1rem; }
+    .methodology-header p { margin:0; max-width:820px; color:var(--muted); font-size:.75rem; line-height:1.5; }
+    .balance-summary { flex:0 0 auto; text-align:right; }
+    .balance-summary strong,.balance-summary small { display:block; }
+    .balance-summary small { margin-top:4px; color:var(--muted); font-size:.66rem; }
+    .method-grid { display:grid; grid-template-columns:repeat(3,1fr); }
+    .method-item { min-height:126px; padding:15px; border-right:1px solid var(--line); border-bottom:1px solid var(--line); }
+    .method-item:nth-child(3n) { border-right:0; }
+    .method-item b { display:block; margin-bottom:7px; color:var(--cyan); font-size:.72rem; text-transform:uppercase; }
+    .method-item strong { display:block; margin-bottom:6px; font-size:.84rem; }
+    .method-item p { margin:0; color:var(--muted); font-size:.7rem; line-height:1.5; }
+    .method-rules { display:flex; flex-wrap:wrap; gap:8px; padding:13px 16px; }
+    .method-rules span { padding:6px 8px; border:1px solid #29415f; color:#c9d9eb; font-size:.65rem; }
+    .movers { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:0 0 24px; }
+    .band { border-top:2px solid var(--blue); background:var(--panel); }
+    .band h2 { margin:0; padding:14px 16px; border-bottom:1px solid var(--line); font-size:.9rem; }
+    .mover { display:grid; grid-template-columns:38px minmax(0,1fr) auto; gap:10px; align-items:center; min-height:58px; padding:8px 14px; border-bottom:1px solid #17263b; }
+    .mover:last-child { border-bottom:0; }
+    .mover b { white-space:nowrap; }
+    .club-token { display:grid; width:36px; height:36px; place-items:center; border:1px solid #34527c; background:#0e2445; color:#dbeaff; font-size:.62rem; font-weight:950; }
+    .toolbar { position:sticky; top:0; z-index:3; display:grid; grid-template-columns:minmax(180px,1fr) repeat(3,minmax(120px,180px)); gap:10px; padding:12px 0; background:rgba(5,9,20,.96); backdrop-filter:blur(10px); }
+    input,select { width:100%; min-height:42px; padding:0 12px; border:1px solid #2a4162; border-radius:4px; color:var(--text); background:#0b1729; font:inherit; }
+    .result-count { margin:4px 0 10px; color:var(--muted); font-size:.75rem; }
+    .table-head,.player-main { display:grid; grid-template-columns:42px minmax(190px,1.5fr) 55px repeat(4,minmax(80px,.72fr)) minmax(110px,.9fr) minmax(100px,.8fr) minmax(105px,.75fr); gap:10px; align-items:center; }
+    .table-head { min-height:42px; padding:0 12px; border:1px solid var(--line); background:#0c1c33; color:var(--muted); font-size:.62rem; font-weight:900; text-transform:uppercase; }
+    .player-row { border:1px solid var(--line); border-top:0; background:#081321; }
+    .player-main { min-height:72px; padding:10px 12px; }
+    .player-name { min-width:0; }
+    .player-name strong { display:block; overflow-wrap:anywhere; font-size:.82rem; }
+    .position { justify-self:start; padding:5px 7px; border-radius:3px; font-size:.64rem; font-weight:950; }
+    .pos-por { color:#ffe07b; background:#4a3c11; } .pos-def { color:#83c6ff; background:#123b62; } .pos-med { color:#7af1ae; background:#123e2b; } .pos-del { color:#ff98a4; background:#4d1e29; }
+    .metric strong { display:block; margin-top:3px; font-size:.76rem; }
+    .change { text-align:right; }
+    .change strong,.change small { display:block; }
+    .change strong { font-size:.82rem; }
+    .change small { margin-top:4px; color:inherit; }
+    .player-factors { display:flex; flex-wrap:wrap; gap:6px; padding:8px 12px 10px 60px; border-top:1px solid #15253a; background:#07101c; }
+    .factor { padding:4px 7px; border:1px solid currentColor; border-radius:3px; font-size:.61rem; font-weight:800; }
+    .factor.note { color:#7088a7; }
+    .empty { display:none; padding:30px; border:1px solid var(--line); color:var(--muted); text-align:center; }
+    footer { margin-top:24px; color:var(--muted); font-size:.7rem; line-height:1.5; }
+    @media (max-width:1100px) { .kpis { grid-template-columns:repeat(2,1fr); } .table-head { display:none; } .player-main { grid-template-columns:42px minmax(150px,1fr) 55px repeat(4,minmax(75px,.7fr)); } .player-main .metric:nth-of-type(5),.player-main .change { grid-column:auto; } }
+    @media (max-width:760px) { main { padding-top:12px; } .methodology-header { display:block; } .balance-summary { margin-top:12px; text-align:left; } .method-grid { grid-template-columns:1fr; } .method-item,.method-item:nth-child(3n) { min-height:0; border-right:0; } .movers { grid-template-columns:1fr; } .toolbar { grid-template-columns:1fr 1fr; } .toolbar input { grid-column:1/-1; } .player-main { grid-template-columns:38px minmax(0,1fr) auto; gap:9px; } .player-main .metric,.player-main .change { padding-top:8px; border-top:1px solid #17283e; text-align:left; } .player-main .metric { grid-column:span 1; } .player-main .change { grid-column:span 1; } .player-factors { padding-left:10px; } }
+    @media (max-width:480px) { .kpis,.movers { grid-template-columns:1fr; } .toolbar { grid-template-columns:1fr 1fr; } .player-main .metric,.player-main .change { grid-column:span 3; display:flex; justify-content:space-between; align-items:center; } .player-main .metric strong { margin:0; } }
+    @media print { :root { color-scheme:light; --bg:#fff; --panel:#fff; --line:#cbd5e1; --text:#0f172a; --muted:#475569; } main { width:100%; padding:0; } .toolbar { display:none; } .player-row { break-inside:avoid; } .player-factors { background:#f8fafc; } .notice { background:#eff6ff; color:#1e3a5f; } }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <span class="eyebrow">Las Pulgas Fantasy · Informe de simulación</span>
+    <h1>Mercado tras cerrar Jornada 1</h1>
+    <p>Proyección calculada con el estado exacto de jugadores, puntuaciones, alineaciones bloqueadas, usuarios activos, rivales futuros y resultados disponibles en el momento de generar este documento.</p>
+    <div class="notice"><strong>SIMULACIÓN</strong><span>No se ha cerrado la jornada ni se ha escrito ningún dato en MongoDB. Si cambian puntuaciones, alineaciones, estados o próximas jornadas, el resultado real también cambiará.</span></div>
+  </header>
+
+  <section class="kpis">
+    <div class="kpi"><small>Valor actual del mercado</small><strong>1.123.000.000 €</strong></div>
+    <div class="kpi"><small>Valor simulado</small><strong>1.123.600.000 €</strong></div>
+    <div class="kpi"><small>Variación neta</small><strong class="up">+0,6 M€</strong></div>
+    <div class="kpi"><small>Objetivo de equilibrio</small><strong>+0,6 M€</strong></div>
+    <div class="kpi"><small>Suben / bajan / igual</small><strong><span class="up">22</span> / <span class="down">30</span> / 39</strong></div>
+    <div class="kpi"><small>Jugadores evaluados</small><strong>62 / 91</strong></div>
+    <div class="kpi"><small>Usuarios activos</small><strong>121</strong></div>
+    <div class="kpi"><small>Alineaciones bloqueadas</small><strong>69 completas</strong></div>
+  </section>
+
+  <section class="methodology">
+    <div class="methodology-header">
+      <div><h2>Cómo se calcula cada valor</h2><p>El algoritmo premia el rendimiento que justifica el precio pagado. Los factores deportivos deciden primero la dirección; el equilibrio global solo reduce la magnitud del lado dominante y nunca convierte una bajada en subida ni al contrario.</p></div>
+      <div class="balance-summary"><strong>+2,5 M€ → +0,6 M€</strong><small>Cambio bruto → cambio equilibrado</small></div>
+    </div>
+    <div class="method-grid">
+      <div class="method-item"><b>01 · Factor principal</b><strong>Puntos frente al precio · hasta 22 %</strong><p>Amplifica las diferencias claras entre el percentil de puntos y el de precio. La franja media es más sensible, los valores superiores a 20 M€ se amortiguan y una actuación top puede aportar hasta 11 %.</p></div>
+      <div class="method-item"><b>02 · Contexto deportivo</b><strong>Comparación por posición · 1,8 %</strong><p>Compara sus puntos con la media de su puesto, pero solo entre jugadores cuyos clubes tienen partido puntuado. Sirve de contexto, no domina el precio.</p></div>
+      <div class="method-item"><b>03 · Rendimiento histórico</b><strong>Fiabilidad progresiva · hasta 6 %</strong><p>Usa puntos medios por jornada evaluada. Su peso crece durante las cinco primeras jornadas para evitar conclusiones fuertes con una sola actuación.</p></div>
+      <div class="method-item"><b>04 · Mercado y calendario</b><strong>Demanda 1,2 % · rival hasta 0,75 %</strong><p>La popularidad y la dificultad del próximo rival ajustan el resultado, pero no pueden compensar por sí solas un rendimiento impropio de su precio.</p></div>
+      <div class="method-item"><b>05 · Límites por precio</b><strong>Subidas y bajadas asimétricas</strong><p>Un jugador de 5 M€ puede subir hasta 16 % y bajar como máximo 4 %. En 18 M€ el margen de subida es 12 %; en 30 M€, solo 3 %.</p></div>
+      <div class="method-item"><b>06 · Equilibrio global</b><strong>Inflación objetivo 0,05 %</strong><p>Se eliminan primero los cambios marginales del lado que desequilibra el mercado. Los movimientos con mayor respaldo deportivo conservan su magnitud y nunca cambian de dirección.</p></div>
+    </div>
+    <div class="method-rules"><span>Club sin partido puntuado: sin cambio</span><span>Zona neutra: menos de 0,75 % no cambia</span><span>No jugó: penalización base moderada de 1 %</span><span>Lesión: -1,5 %</span><span>Sanción: -2 %</span><span>Mínimo 5 M€</span><span>Máximo 30 M€</span></div>
+  </section>
+
+  <section class="movers">
+    <div class="band"><h2>Mayores subidas</h2>
+    <div class="mover">
+      <span class="club-token">BALL</span>
+      <div><strong>Alejandro Torres</strong><small>MED · 19 M€ → 21,1 M€</small></div>
+      <b class="up">+2,1 M€</b>
+    </div>
+  
+    <div class="mover">
+      <span class="club-token">BALL</span>
+      <div><strong>César Agüero</strong><small>DEL · 16 M€ → 18 M€</small></div>
+      <b class="up">+2 M€</b>
+    </div>
+  
+    <div class="mover">
+      <span class="club-token">CANT</span>
+      <div><strong>David Herrera Esparcia</strong><small>MED · 13 M€ → 14,8 M€</small></div>
+      <b class="up">+1,8 M€</b>
+    </div>
+  
+    <div class="mover">
+      <span class="club-token">ROB</span>
+      <div><strong>Pablo González</strong><small>MED · 18 M€ → 19,8 M€</small></div>
+      <b class="up">+1,8 M€</b>
+    </div>
+  
+    <div class="mover">
+      <span class="club-token">BALL</span>
+      <div><strong>Kato</strong><small>POR · 12 M€ → 13,7 M€</small></div>
+      <b class="up">+1,7 M€</b>
+    </div>
+  </div>
+    <div class="band"><h2>Mayores bajadas</h2>
+    <div class="mover">
+      <span class="club-token">ROB</span>
+      <div><strong>Fabio Garví</strong><small>DEL · 25 M€ → 22,8 M€</small></div>
+      <b class="down">-2,2 M€</b>
+    </div>
+  
+    <div class="mover">
+      <span class="club-token">CANT</span>
+      <div><strong>José Ramón García Sánchez (Bolo)</strong><small>DEF · 22 M€ → 20,2 M€</small></div>
+      <b class="down">-1,8 M€</b>
+    </div>
+  
+    <div class="mover">
+      <span class="club-token">QUIJ</span>
+      <div><strong>Daniel Rodríguez Carneros</strong><small>DEF · 22 M€ → 20,2 M€</small></div>
+      <b class="down">-1,8 M€</b>
+    </div>
+  
+    <div class="mover">
+      <span class="club-token">CANT</span>
+      <div><strong>Sergio Serrano Cano</strong><small>DEF · 20 M€ → 18,4 M€</small></div>
+      <b class="down">-1,6 M€</b>
+    </div>
+  
+    <div class="mover">
+      <span class="club-token">CANT</span>
+      <div><strong>Álvaro Marín Rodríguez (Marin)</strong><small>DEL · 20 M€ → 18,4 M€</small></div>
+      <b class="down">-1,6 M€</b>
+    </div>
+  </div>
+  </section>
+
+  <section>
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="Buscar jugador o club" aria-label="Buscar jugador o club" />
+      <select id="club" aria-label="Filtrar por club"><option value="">Todos los clubes</option><option value="6a59093bdff783365f1b4e95">El Ballestero F.C.</option><option value="6a59093bdff783365f1b4e92">F.C. Jardín</option><option value="6a59093bdff783365f1b4e91">Los Cantones F.C.</option><option value="6a59093bdff783365f1b4e94">Los Chospes F.C.</option><option value="6a59093bdff783365f1b4e93">Quijote-Pesebre</option><option value="6a59093bdff783365f1b4e90">Robledo F.C.</option></select>
+      <select id="position" aria-label="Filtrar por posición"><option value="">Todas las posiciones</option><option>POR</option><option>DEF</option><option>MED</option><option>DEL</option></select>
+      <select id="direction" aria-label="Filtrar por variación"><option value="">Todas las variaciones</option><option value="up">Subidas</option><option value="down">Bajadas</option><option value="stable">Sin cambio</option></select>
+    </div>
+    <p class="result-count" id="result-count"></p>
+    <div class="table-head"><span>Club</span><span>Jugador</span><span>Pos.</span><span>Actual</span><span>Jornada</span><span>Media</span><span>Uso</span><span>Próximo rival</span><span>Simulado</span><span>Variación</span></div>
+    <div id="players">
+    <article class="player-row" data-search="kato el ballestero f.c. ball" data-club="6a59093bdff783365f1b4e95" data-position="POR" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">BALL</span>
+        <div class="player-name"><strong>Kato</strong><small>El Ballestero F.C.</small></div>
+        <span class="position pos-por">POR</span>
+        <div class="metric"><small>Valor actual</small><strong>12 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>14 · P96</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>14.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>9 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>JAR</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>13,7 M€</strong></div>
+        <div class="change up"><strong>+1,7 M€</strong><small>+14,2 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +19,68 %</span><span class="factor up">Actuación top +7,99 %</span><span class="factor up">Comparación por puesto +1 %</span><span class="factor up">Histórico frente a precio +0,39 %</span><span class="factor up">Histórico por puesto +0,11 %</span><span class="factor up">Demanda +0,19 %</span><span class="factor down">Próximo rival -0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 96 · precio 57</span>
+        <span class="factor note">Media POR 9.00 pts</span>
+        <span class="factor note">Límite personal +13,9 % / -5,6 %</span>
+        <span class="factor note">Cambio bruto +1,7 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="héctor torres el ballestero f.c. ball" data-club="6a59093bdff783365f1b4e95" data-position="DEF" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">BALL</span>
+        <div class="player-name"><strong>Héctor Torres</strong><small>El Ballestero F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>9 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>7 · P78</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>7.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>7 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>JAR</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>10,3 M€</strong></div>
+        <div class="change up"><strong>+1,3 M€</strong><small>+14,4 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +22 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +1,78 %</span><span class="factor up">Histórico frente a precio +0,56 %</span><span class="factor up">Histórico por puesto +0,2 %</span><span class="factor down">Demanda -0,12 %</span><span class="factor down">Próximo rival -0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 78 · precio 22</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +14,8 % / -4,8 %</span>
+        <span class="factor note">Cambio bruto +1,3 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="ismael ortega ortega el ballestero f.c. ball" data-club="6a59093bdff783365f1b4e95" data-position="DEF" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">BALL</span>
+        <div class="player-name"><strong>Ismael Ortega Ortega</strong><small>El Ballestero F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>12 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>2 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>JAR</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>11,3 M€</strong></div>
+        <div class="change down"><strong>-0,7 M€</strong><small>-5,8 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -18,81 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,37 %</span><span class="factor down">Histórico frente a precio -0,38 %</span><span class="factor down">Histórico por puesto -0,15 %</span><span class="factor down">Demanda -0,89 %</span><span class="factor down">Próximo rival -0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 57</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +13,9 % / -5,6 %</span>
+        <span class="factor note">Cambio bruto -0,7 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="jaime lópez banda el ballestero f.c. ball" data-club="6a59093bdff783365f1b4e95" data-position="DEF" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">BALL</span>
+        <div class="player-name"><strong>Jaime López Banda</strong><small>El Ballestero F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>8 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>4 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>JAR</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>7,7 M€</strong></div>
+        <div class="change down"><strong>-0,3 M€</strong><small>-3,8 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +0,15 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,37 %</span><span class="factor stable">Histórico frente a precio +0,03 %</span><span class="factor down">Histórico por puesto -0,15 %</span><span class="factor down">Demanda -0,58 %</span><span class="factor down">Próximo rival -0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 16</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +15,1 % / -4,6 %</span>
+        <span class="factor note">Cambio bruto -0,3 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="sergio avendaño el ballestero f.c. ball" data-club="6a59093bdff783365f1b4e95" data-position="DEF" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">BALL</span>
+        <div class="player-name"><strong>Sergio Avendaño</strong><small>El Ballestero F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>9 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>10 · P89</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>10.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>1 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>JAR</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>10,3 M€</strong></div>
+        <div class="change up"><strong>+1,3 M€</strong><small>+14,4 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +22 %</span><span class="factor up">Actuación top +3,19 %</span><span class="factor up">Comparación por puesto +1,8 %</span><span class="factor up">Histórico frente a precio +0,68 %</span><span class="factor up">Histórico por puesto +0,2 %</span><span class="factor down">Demanda -1,05 %</span><span class="factor down">Próximo rival -0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 89 · precio 22</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +14,8 % / -4,8 %</span>
+        <span class="factor note">Cambio bruto +1,3 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="sergio torres el ballestero f.c. ball" data-club="6a59093bdff783365f1b4e95" data-position="DEF" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">BALL</span>
+        <div class="player-name"><strong>Sergio Torres</strong><small>El Ballestero F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>4 · P51</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>4.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>5 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>JAR</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>10,5 M€</strong></div>
+        <div class="change up"><strong>+0,5 M€</strong><small>+5 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +6,28 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +0,43 %</span><span class="factor up">Histórico frente a precio +0,17 %</span><span class="factor stable">Histórico por puesto +0,05 %</span><span class="factor down">Demanda -0,43 %</span><span class="factor down">Próximo rival -0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor down">Equilibrio -0,1 M€</span>
+        
+        <span class="factor note">Percentil puntos 51 · precio 33</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +14,5 % / -5 %</span>
+        <span class="factor note">Cambio bruto +0,6 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="alberto fernández el ballestero f.c. ball" data-club="6a59093bdff783365f1b4e95" data-position="MED" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">BALL</span>
+        <div class="player-name"><strong>Alberto Fernández</strong><small>El Ballestero F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>15 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>9 · P85</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>9.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>2 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>JAR</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>15 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +2,85 %</span><span class="factor up">Actuación top +0,18 %</span><span class="factor up">Comparación por puesto +1,18 %</span><span class="factor up">Histórico frente a precio +0,12 %</span><span class="factor up">Histórico por puesto +0,13 %</span><span class="factor down">Demanda -0,89 %</span><span class="factor down">Próximo rival -0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor down">Equilibrio -0,5 M€</span>
+        
+        <span class="factor note">Percentil puntos 85 · precio 73</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +13 % / -6,5 %</span>
+        <span class="factor note">Cambio bruto +0,5 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="alejandro torres el ballestero f.c. ball" data-club="6a59093bdff783365f1b4e95" data-position="MED" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">BALL</span>
+        <div class="player-name"><strong>Alejandro Torres</strong><small>El Ballestero F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>19 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>14 · P96</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>14.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>14 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>JAR</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>21,1 M€</strong></div>
+        <div class="change up"><strong>+2,1 M€</strong><small>+11,1 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +0,38 %</span><span class="factor up">Actuación top +7,99 %</span><span class="factor up">Comparación por puesto +1,8 %</span><span class="factor up">Histórico frente a precio +0,07 %</span><span class="factor up">Histórico por puesto +0,2 %</span><span class="factor up">Demanda +0,96 %</span><span class="factor down">Próximo rival -0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 96 · precio 89</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +11,2 % / -7,7 %</span>
+        <span class="factor note">Cambio bruto +2,1 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="iván lorenzo el ballestero f.c. ball" data-club="6a59093bdff783365f1b4e95" data-position="MED" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">BALL</span>
+        <div class="player-name"><strong>Iván Lorenzo</strong><small>El Ballestero F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>19 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>1 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>JAR</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>17,5 M€</strong></div>
+        <div class="change down"><strong>-1,5 M€</strong><small>-7,9 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -21,75 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,8 %</span><span class="factor down">Histórico frente a precio -0,7 %</span><span class="factor down">Histórico por puesto -0,2 %</span><span class="factor down">Demanda -1,05 %</span><span class="factor down">Próximo rival -0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 89</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +11,2 % / -7,7 %</span>
+        <span class="factor note">Cambio bruto -1,5 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="josé ramón cañizares el ballestero f.c. ball" data-club="6a59093bdff783365f1b4e95" data-position="MED" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">BALL</span>
+        <div class="player-name"><strong>José Ramón Cañizares</strong><small>El Ballestero F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>3 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>JAR</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>9,5 M€</strong></div>
+        <div class="change down"><strong>-0,5 M€</strong><small>-5 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -4,43 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,8 %</span><span class="factor down">Histórico frente a precio -0,14 %</span><span class="factor down">Histórico por puesto -0,2 %</span><span class="factor down">Demanda -0,74 %</span><span class="factor down">Próximo rival -0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 33</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +14,5 % / -5 %</span>
+        <span class="factor note">Cambio bruto -0,5 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="alejandro galletero el ballestero f.c. ball" data-club="6a59093bdff783365f1b4e95" data-position="DEL" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">BALL</span>
+        <div class="player-name"><strong>Alejandro Galletero</strong><small>El Ballestero F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>14 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>1 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>JAR</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>13,1 M€</strong></div>
+        <div class="change down"><strong>-0,9 M€</strong><small>-6,4 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -22 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,54 %</span><span class="factor down">Histórico frente a precio -0,51 %</span><span class="factor down">Histórico por puesto -0,17 %</span><span class="factor down">Demanda -1,05 %</span><span class="factor down">Próximo rival -0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 69</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +13,3 % / -6,2 %</span>
+        <span class="factor note">Cambio bruto -0,9 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="alejandro garrido el ballestero f.c. ball" data-club="6a59093bdff783365f1b4e95" data-position="DEL" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">BALL</span>
+        <div class="player-name"><strong>Alejandro Garrido</strong><small>El Ballestero F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>11 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>3 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>JAR</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>10,4 M€</strong></div>
+        <div class="change down"><strong>-0,6 M€</strong><small>-5,5 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -12,99 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,54 %</span><span class="factor down">Histórico frente a precio -0,28 %</span><span class="factor down">Histórico por puesto -0,17 %</span><span class="factor down">Demanda -0,74 %</span><span class="factor down">Próximo rival -0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 47</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +14,2 % / -5,3 %</span>
+        <span class="factor note">Cambio bruto -0,6 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="césar agüero el ballestero f.c. ball" data-club="6a59093bdff783365f1b4e95" data-position="DEL" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">BALL</span>
+        <div class="player-name"><strong>César Agüero</strong><small>El Ballestero F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>16 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>16 · P98</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>16.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>9 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>JAR</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>18 M€</strong></div>
+        <div class="change up"><strong>+2 M€</strong><small>+12,5 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +7,85 %</span><span class="factor up">Actuación top +9,8 %</span><span class="factor up">Comparación por puesto +1,8 %</span><span class="factor up">Histórico frente a precio +0,2 %</span><span class="factor up">Histórico por puesto +0,2 %</span><span class="factor up">Demanda +0,19 %</span><span class="factor down">Próximo rival -0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 98 · precio 78</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +12,7 % / -6,8 %</span>
+        <span class="factor note">Cambio bruto +2 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="pedro rivera el ballestero f.c. ball" data-club="6a59093bdff783365f1b4e95" data-position="DEL" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">BALL</span>
+        <div class="player-name"><strong>Pedro Rivera</strong><small>El Ballestero F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>JAR</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>9,5 M€</strong></div>
+        <div class="change down"><strong>-0,5 M€</strong><small>-5 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -4,43 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,54 %</span><span class="factor down">Histórico frente a precio -0,14 %</span><span class="factor down">Histórico por puesto -0,17 %</span><span class="factor down">Demanda -1,2 %</span><span class="factor down">Próximo rival -0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 33</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +14,5 % / -5 %</span>
+        <span class="factor note">Cambio bruto -0,5 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="rafael ortega ortega el ballestero f.c. ball" data-club="6a59093bdff783365f1b4e95" data-position="DEL" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">BALL</span>
+        <div class="player-name"><strong>Rafael Ortega Ortega</strong><small>El Ballestero F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>12 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>1 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>JAR</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>11,3 M€</strong></div>
+        <div class="change down"><strong>-0,7 M€</strong><small>-5,8 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -18,81 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,54 %</span><span class="factor down">Histórico frente a precio -0,38 %</span><span class="factor down">Histórico por puesto -0,17 %</span><span class="factor down">Demanda -1,05 %</span><span class="factor down">Próximo rival -0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 57</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +13,9 % / -5,6 %</span>
+        <span class="factor note">Cambio bruto -0,7 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="samuel ortega el ballestero f.c. ball" data-club="6a59093bdff783365f1b4e95" data-position="DEL" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">BALL</span>
+        <div class="player-name"><strong>Samuel Ortega</strong><small>El Ballestero F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>19 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>11 · P92</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>11.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>5 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>JAR</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>20,2 M€</strong></div>
+        <div class="change up"><strong>+1,2 M€</strong><small>+6,3 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +0,16 %</span><span class="factor up">Actuación top +4,99 %</span><span class="factor up">Comparación por puesto +1,8 %</span><span class="factor stable">Histórico frente a precio +0,03 %</span><span class="factor up">Histórico por puesto +0,2 %</span><span class="factor down">Demanda -0,43 %</span><span class="factor down">Próximo rival -0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 92 · precio 89</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +11,2 % / -7,7 %</span>
+        <span class="factor note">Cambio bruto +1,2 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="cristian lópez garcía f.c. jardín jar" data-club="6a59093bdff783365f1b4e92" data-position="POR" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">JAR</span>
+        <div class="player-name"><strong>Cristian López García</strong><small>F.C. Jardín</small></div>
+        <span class="position pos-por">POR</span>
+        <div class="metric"><small>Valor actual</small><strong>18 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>BALL</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>18 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="álvaro garcía fernández f.c. jardín jar" data-club="6a59093bdff783365f1b4e92" data-position="DEF" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">JAR</span>
+        <div class="player-name"><strong>Álvaro García Fernández</strong><small>F.C. Jardín</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>BALL</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>10 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="álvaro garví barba f.c. jardín jar" data-club="6a59093bdff783365f1b4e92" data-position="DEF" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">JAR</span>
+        <div class="player-name"><strong>Álvaro Garví Barba</strong><small>F.C. Jardín</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>BALL</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>10 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="andrés de haro lorenzo f.c. jardín jar" data-club="6a59093bdff783365f1b4e92" data-position="DEF" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">JAR</span>
+        <div class="player-name"><strong>Andrés de Haro Lorenzo</strong><small>F.C. Jardín</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>8 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>BALL</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>8 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="juan bodalo vitoria f.c. jardín jar" data-club="6a59093bdff783365f1b4e92" data-position="DEF" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">JAR</span>
+        <div class="player-name"><strong>Juan Bodalo Vitoria</strong><small>F.C. Jardín</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>16 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>BALL</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>16 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="lucilo lópez garcía f.c. jardín jar" data-club="6a59093bdff783365f1b4e92" data-position="DEF" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">JAR</span>
+        <div class="player-name"><strong>Lucilo López García</strong><small>F.C. Jardín</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>13 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>BALL</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>13 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="víctor garrido cortés f.c. jardín jar" data-club="6a59093bdff783365f1b4e92" data-position="DEF" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">JAR</span>
+        <div class="player-name"><strong>Víctor Garrido Cortés</strong><small>F.C. Jardín</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>5 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>BALL</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>5 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="abel garrigós cuesta f.c. jardín jar" data-club="6a59093bdff783365f1b4e92" data-position="MED" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">JAR</span>
+        <div class="player-name"><strong>Abel Garrigós Cuesta</strong><small>F.C. Jardín</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>20 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>BALL</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>20 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="eduardo garcía fernández f.c. jardín jar" data-club="6a59093bdff783365f1b4e92" data-position="MED" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">JAR</span>
+        <div class="player-name"><strong>Eduardo García Fernández</strong><small>F.C. Jardín</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>6 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>BALL</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>6 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="fernando david valcárcel moreno f.c. jardín jar" data-club="6a59093bdff783365f1b4e92" data-position="MED" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">JAR</span>
+        <div class="player-name"><strong>Fernando David Valcárcel Moreno</strong><small>F.C. Jardín</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>BALL</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>10 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="josé luis garcía rozalén f.c. jardín jar" data-club="6a59093bdff783365f1b4e92" data-position="MED" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">JAR</span>
+        <div class="player-name"><strong>José Luis García Rozalén</strong><small>F.C. Jardín</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>5 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>BALL</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>5 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="bemba fane sissoko f.c. jardín jar" data-club="6a59093bdff783365f1b4e92" data-position="DEL" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">JAR</span>
+        <div class="player-name"><strong>Bemba Fane Sissoko</strong><small>F.C. Jardín</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>7 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>BALL</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>7 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="hugo fernández martínez f.c. jardín jar" data-club="6a59093bdff783365f1b4e92" data-position="DEL" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">JAR</span>
+        <div class="player-name"><strong>Hugo Fernández Martínez</strong><small>F.C. Jardín</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>14 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>BALL</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>14 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="jaime sánchez cuartero f.c. jardín jar" data-club="6a59093bdff783365f1b4e92" data-position="DEL" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">JAR</span>
+        <div class="player-name"><strong>Jaime Sánchez Cuartero</strong><small>F.C. Jardín</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>20 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>BALL</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>20 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="jesús garví barba f.c. jardín jar" data-club="6a59093bdff783365f1b4e92" data-position="DEL" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">JAR</span>
+        <div class="player-name"><strong>Jesús Garví Barba</strong><small>F.C. Jardín</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>BALL</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>10 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="juan ángel santiago díaz f.c. jardín jar" data-club="6a59093bdff783365f1b4e92" data-position="DEL" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">JAR</span>
+        <div class="player-name"><strong>Juan Ángel Santiago Díaz</strong><small>F.C. Jardín</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>BALL</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>10 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="pedro escribano morcillo f.c. jardín jar" data-club="6a59093bdff783365f1b4e92" data-position="DEL" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">JAR</span>
+        <div class="player-name"><strong>Pedro Escribano Morcillo</strong><small>F.C. Jardín</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>12 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>BALL</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>12 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="ángel david garcía lozano (a. david) los cantones f.c. cant" data-club="6a59093bdff783365f1b4e91" data-position="POR" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">CANT</span>
+        <div class="player-name"><strong>Ángel David García Lozano (A. David)</strong><small>Los Cantones F.C.</small></div>
+        <span class="position pos-por">POR</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>9 · P85</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>9.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>35 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>11,5 M€</strong></div>
+        <div class="change up"><strong>+1,5 M€</strong><small>+15 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +22 %</span><span class="factor up">Actuación top +0,18 %</span><span class="factor stable">Comparación por puesto 0 %</span><span class="factor up">Histórico frente a precio +0,52 %</span><span class="factor stable">Histórico por puesto 0 %</span><span class="factor up">Demanda +1,2 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 85 · precio 33</span>
+        <span class="factor note">Media POR 9.00 pts</span>
+        <span class="factor note">Límite personal +14,5 % / -5 %</span>
+        <span class="factor note">Cambio bruto +1,5 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="aitor lozano ortega (belfetas) los cantones f.c. cant" data-club="6a59093bdff783365f1b4e91" data-position="DEF" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">CANT</span>
+        <div class="player-name"><strong>Aitor Lozano Ortega (Belfetas)</strong><small>Los Cantones F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>-1 · P0</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>-1.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>11 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>9,5 M€</strong></div>
+        <div class="change down"><strong>-0,5 M€</strong><small>-5 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -16,05 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,8 %</span><span class="factor down">Histórico frente a precio -0,33 %</span><span class="factor down">Histórico por puesto -0,2 %</span><span class="factor up">Demanda +0,49 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 0 · precio 33</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +14,5 % / -5 %</span>
+        <span class="factor note">Cambio bruto -0,5 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="fernando lópez valero (fer) los cantones f.c. cant" data-club="6a59093bdff783365f1b4e91" data-position="DEF" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">CANT</span>
+        <div class="player-name"><strong>Fernando López Valero (Fer)</strong><small>Los Cantones F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>11 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>10 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>10,4 M€</strong></div>
+        <div class="change down"><strong>-0,6 M€</strong><small>-5,5 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -12,99 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,37 %</span><span class="factor down">Histórico frente a precio -0,28 %</span><span class="factor down">Histórico por puesto -0,15 %</span><span class="factor up">Demanda +0,34 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 47</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +14,2 % / -5,3 %</span>
+        <span class="factor note">Cambio bruto -0,6 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="josé ramón garcía sánchez (bolo) los cantones f.c. cant" data-club="6a59093bdff783365f1b4e91" data-position="DEF" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">CANT</span>
+        <div class="player-name"><strong>José Ramón García Sánchez (Bolo)</strong><small>Los Cantones F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>22 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>3 · P40</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>3.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>14 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>20,2 M€</strong></div>
+        <div class="change down"><strong>-1,8 M€</strong><small>-8,2 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -18,75 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor stable">Comparación por puesto -0,02 %</span><span class="factor down">Histórico frente a precio -0,57 %</span><span class="factor stable">Histórico por puesto -0 %</span><span class="factor up">Demanda +0,96 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 40 · precio 97</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +8,5 % / -8,4 %</span>
+        <span class="factor note">Cambio bruto -1,8 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="pedro jesús garcía cuerda (perus) los cantones f.c. cant" data-club="6a59093bdff783365f1b4e91" data-position="DEF" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">CANT</span>
+        <div class="player-name"><strong>Pedro Jesús García Cuerda (Perus)</strong><small>Los Cantones F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>8 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>3 · P40</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>3.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>14 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>8,9 M€</strong></div>
+        <div class="change up"><strong>+0,9 M€</strong><small>+11,3 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +10,33 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor stable">Comparación por puesto -0,02 %</span><span class="factor up">Histórico frente a precio +0,24 %</span><span class="factor stable">Histórico por puesto -0 %</span><span class="factor up">Demanda +0,96 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 40 · precio 16</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +15,1 % / -4,6 %</span>
+        <span class="factor note">Cambio bruto +0,9 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="sergio serrano cano los cantones f.c. cant" data-club="6a59093bdff783365f1b4e91" data-position="DEF" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">CANT</span>
+        <div class="player-name"><strong>Sergio Serrano Cano</strong><small>Los Cantones F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>20 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>1 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>18,4 M€</strong></div>
+        <div class="change down"><strong>-1,6 M€</strong><small>-8 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -20,75 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,37 %</span><span class="factor down">Histórico frente a precio -0,74 %</span><span class="factor down">Histórico por puesto -0,15 %</span><span class="factor down">Demanda -1,05 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 93</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +10,5 % / -8 %</span>
+        <span class="factor note">Cambio bruto -1,6 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="carlos mozo cano (mozo) los cantones f.c. cant" data-club="6a59093bdff783365f1b4e91" data-position="MED" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">CANT</span>
+        <div class="player-name"><strong>Carlos Mozo Cano (Mozo)</strong><small>Los Cantones F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>11 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>4 · P51</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>4.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>10 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>11 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +0,2 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -0,48 %</span><span class="factor stable">Histórico frente a precio +0,04 %</span><span class="factor down">Histórico por puesto -0,05 %</span><span class="factor up">Demanda +0,34 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 51 · precio 47</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +14,2 % / -5,3 %</span>
+        <span class="factor note">Cambio bruto Sin cambio</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="david herrera esparcia los cantones f.c. cant" data-club="6a59093bdff783365f1b4e91" data-position="MED" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">CANT</span>
+        <div class="player-name"><strong>David Herrera Esparcia</strong><small>Los Cantones F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>13 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>17 · P100</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>17.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>14 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>14,8 M€</strong></div>
+        <div class="change up"><strong>+1,8 M€</strong><small>+13,9 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +17,07 %</span><span class="factor up">Actuación top +11 %</span><span class="factor up">Comparación por puesto +1,8 %</span><span class="factor up">Histórico frente a precio +0,35 %</span><span class="factor up">Histórico por puesto +0,2 %</span><span class="factor up">Demanda +0,96 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 100 · precio 65</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +13,6 % / -5,9 %</span>
+        <span class="factor note">Cambio bruto +1,8 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="jose juan amador martinez los cantones f.c. cant" data-club="6a59093bdff783365f1b4e91" data-position="MED" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">CANT</span>
+        <div class="player-name"><strong>Jose Juan Amador Martinez</strong><small>Los Cantones F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>14 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>7 · P78</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>7.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>10 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>14 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +0,7 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +0,51 %</span><span class="factor up">Histórico frente a precio +0,08 %</span><span class="factor up">Histórico por puesto +0,06 %</span><span class="factor up">Demanda +0,34 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor down">Equilibrio -0,2 M€</span>
+        
+        <span class="factor note">Percentil puntos 78 · precio 69</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +13,3 % / -6,2 %</span>
+        <span class="factor note">Cambio bruto +0,2 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="sergio ortega ballesteros (chabo) los cantones f.c. cant" data-club="6a59093bdff783365f1b4e91" data-position="MED" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">CANT</span>
+        <div class="player-name"><strong>Sergio Ortega Ballesteros (Chabo)</strong><small>Los Cantones F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>11 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>7 · P78</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>7.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>12 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>12,6 M€</strong></div>
+        <div class="change up"><strong>+1,6 M€</strong><small>+14,5 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +14,39 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +0,51 %</span><span class="factor up">Histórico frente a precio +0,31 %</span><span class="factor up">Histórico por puesto +0,06 %</span><span class="factor up">Demanda +0,65 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 78 · precio 47</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +14,2 % / -5,3 %</span>
+        <span class="factor note">Cambio bruto +1,6 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="álvaro marín rodríguez (marin) los cantones f.c. cant" data-club="6a59093bdff783365f1b4e91" data-position="DEL" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">CANT</span>
+        <div class="player-name"><strong>Álvaro Marín Rodríguez (Marin)</strong><small>Los Cantones F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>20 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>3 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>18,4 M€</strong></div>
+        <div class="change down"><strong>-1,6 M€</strong><small>-8 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -20,75 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,54 %</span><span class="factor down">Histórico frente a precio -0,74 %</span><span class="factor down">Histórico por puesto -0,17 %</span><span class="factor down">Demanda -0,74 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 93</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +10,5 % / -8 %</span>
+        <span class="factor note">Cambio bruto -1,6 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="fede quijano gómez (lacerilla) los cantones f.c. cant" data-club="6a59093bdff783365f1b4e91" data-position="DEL" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">CANT</span>
+        <div class="player-name"><strong>Fede Quijano Gómez (Lacerilla)</strong><small>Los Cantones F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>13 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>5 · P66</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>5.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>14 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>13 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +0,08 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +0,71 %</span><span class="factor stable">Histórico frente a precio +0,01 %</span><span class="factor up">Histórico por puesto +0,08 %</span><span class="factor up">Demanda +0,96 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor down">Equilibrio -0,2 M€</span>
+        
+        <span class="factor note">Percentil puntos 66 · precio 65</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +13,6 % / -5,9 %</span>
+        <span class="factor note">Cambio bruto +0,2 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="pascual muñoz lópez (pascu) los cantones f.c. cant" data-club="6a59093bdff783365f1b4e91" data-position="DEL" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">CANT</span>
+        <div class="player-name"><strong>Pascual Muñoz López (Pascu)</strong><small>Los Cantones F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>12 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>2 · P38</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>2.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>22 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>11,3 M€</strong></div>
+        <div class="change down"><strong>-0,7 M€</strong><small>-5,8 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -7,19 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -0,64 %</span><span class="factor down">Histórico frente a precio -0,19 %</span><span class="factor down">Histórico por puesto -0,07 %</span><span class="factor up">Demanda +1,2 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 38 · precio 57</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +13,9 % / -5,6 %</span>
+        <span class="factor note">Cambio bruto -0,7 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="pedro rubio esono los cantones f.c. cant" data-club="6a59093bdff783365f1b4e91" data-position="DEL" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">CANT</span>
+        <div class="player-name"><strong>Pedro Rubio Esono</strong><small>Los Cantones F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>17 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>4 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>15,8 M€</strong></div>
+        <div class="change down"><strong>-1,2 M€</strong><small>-7,1 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -22 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,54 %</span><span class="factor down">Histórico frente a precio -0,63 %</span><span class="factor down">Histórico por puesto -0,17 %</span><span class="factor down">Demanda -0,58 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 82</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +12,3 % / -7,1 %</span>
+        <span class="factor note">Cambio bruto -1,2 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="juan josé lópez los chospes f.c. chos" data-club="6a59093bdff783365f1b4e94" data-position="POR" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">CHOS</span>
+        <div class="player-name"><strong>Juan José López</strong><small>Los Chospes F.C.</small></div>
+        <span class="position pos-por">POR</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>QUIJ</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>10 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="ismael sánchez arcas los chospes f.c. chos" data-club="6a59093bdff783365f1b4e94" data-position="DEF" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">CHOS</span>
+        <div class="player-name"><strong>Ismael Sánchez Arcas</strong><small>Los Chospes F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>8 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>QUIJ</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>8 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="loren martínez los chospes f.c. chos" data-club="6a59093bdff783365f1b4e94" data-position="DEF" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">CHOS</span>
+        <div class="player-name"><strong>Loren Martínez</strong><small>Los Chospes F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>QUIJ</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>10 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="miguel ángel romero navarro los chospes f.c. chos" data-club="6a59093bdff783365f1b4e94" data-position="DEF" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">CHOS</span>
+        <div class="player-name"><strong>Miguel Ángel Romero Navarro</strong><small>Los Chospes F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>11 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>QUIJ</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>11 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="piu los chospes f.c. chos" data-club="6a59093bdff783365f1b4e94" data-position="DEF" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">CHOS</span>
+        <div class="player-name"><strong>Piu</strong><small>Los Chospes F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>8 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>QUIJ</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>8 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="adrián copete sahuquillo los chospes f.c. chos" data-club="6a59093bdff783365f1b4e94" data-position="MED" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">CHOS</span>
+        <div class="player-name"><strong>Adrián Copete Sahuquillo</strong><small>Los Chospes F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>6 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>QUIJ</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>6 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="alex pricop los chospes f.c. chos" data-club="6a59093bdff783365f1b4e94" data-position="MED" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">CHOS</span>
+        <div class="player-name"><strong>Alex Pricop</strong><small>Los Chospes F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>QUIJ</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>10 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="amin selloum los chospes f.c. chos" data-club="6a59093bdff783365f1b4e94" data-position="MED" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">CHOS</span>
+        <div class="player-name"><strong>Amin Selloum</strong><small>Los Chospes F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>12 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>QUIJ</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>12 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="pedro sánchez lorenzo los chospes f.c. chos" data-club="6a59093bdff783365f1b4e94" data-position="MED" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">CHOS</span>
+        <div class="player-name"><strong>Pedro Sánchez Lorenzo</strong><small>Los Chospes F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>QUIJ</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>10 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="jonathan redondo galdón los chospes f.c. chos" data-club="6a59093bdff783365f1b4e94" data-position="DEL" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">CHOS</span>
+        <div class="player-name"><strong>Jonathan Redondo Galdón</strong><small>Los Chospes F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>8 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>QUIJ</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>8 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="miguel ángel bañol notario los chospes f.c. chos" data-club="6a59093bdff783365f1b4e94" data-position="DEL" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">CHOS</span>
+        <div class="player-name"><strong>Miguel Ángel Bañol Notario</strong><small>Los Chospes F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>QUIJ</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>10 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="miguel ángel moreno los chospes f.c. chos" data-club="6a59093bdff783365f1b4e94" data-position="DEL" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">CHOS</span>
+        <div class="player-name"><strong>Miguel Ángel Moreno</strong><small>Los Chospes F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>11 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>Sin partido</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>Sin datos</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>QUIJ</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>11 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor stable">Su club no tiene puntuación en esta jornada: conserva su valor</span>
+        
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="ángel de la rosa moya quijote-pesebre quij" data-club="6a59093bdff783365f1b4e93" data-position="POR" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">QUIJ</span>
+        <div class="player-name"><strong>Ángel de la Rosa Moya</strong><small>Quijote-Pesebre</small></div>
+        <span class="position pos-por">POR</span>
+        <div class="metric"><small>Valor actual</small><strong>12 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>5 · P66</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>5.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>12 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>CHOS</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>12 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +1,5 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -0,8 %</span><span class="factor up">Histórico frente a precio +0,1 %</span><span class="factor down">Histórico por puesto -0,09 %</span><span class="factor up">Demanda +0,65 %</span><span class="factor up">Próximo rival +0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor down">Equilibrio -0,2 M€</span>
+        
+        <span class="factor note">Percentil puntos 66 · precio 57</span>
+        <span class="factor note">Media POR 9.00 pts</span>
+        <span class="factor note">Límite personal +13,9 % / -5,6 %</span>
+        <span class="factor note">Cambio bruto +0,2 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="daniel rodríguez carneros quijote-pesebre quij" data-club="6a59093bdff783365f1b4e93" data-position="DEF" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">QUIJ</span>
+        <div class="player-name"><strong>Daniel Rodríguez Carneros</strong><small>Quijote-Pesebre</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>22 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>3 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>CHOS</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>20,2 M€</strong></div>
+        <div class="change down"><strong>-1,8 M€</strong><small>-8,2 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -18,75 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,37 %</span><span class="factor down">Histórico frente a precio -0,78 %</span><span class="factor down">Histórico por puesto -0,15 %</span><span class="factor down">Demanda -0,74 %</span><span class="factor up">Próximo rival +0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 97</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +8,5 % / -8,4 %</span>
+        <span class="factor note">Cambio bruto -1,8 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="manuel cabrera garcía quijote-pesebre quij" data-club="6a59093bdff783365f1b4e93" data-position="DEF" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">QUIJ</span>
+        <div class="player-name"><strong>Manuel Cabrera García</strong><small>Quijote-Pesebre</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>16 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>5 · P66</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>5.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>15 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>CHOS</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>16 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -2,87 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +0,88 %</span><span class="factor down">Histórico frente a precio -0,12 %</span><span class="factor up">Histórico por puesto +0,1 %</span><span class="factor up">Demanda +1,11 %</span><span class="factor up">Próximo rival +0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 66 · precio 78</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +12,7 % / -6,8 %</span>
+        <span class="factor note">Cambio bruto Sin cambio</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="nicolás casado rodríguez quijote-pesebre quij" data-club="6a59093bdff783365f1b4e93" data-position="DEF" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">QUIJ</span>
+        <div class="player-name"><strong>Nicolás Casado Rodríguez</strong><small>Quijote-Pesebre</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>12 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>6 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>CHOS</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>11,3 M€</strong></div>
+        <div class="change down"><strong>-0,7 M€</strong><small>-5,8 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -18,81 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,37 %</span><span class="factor down">Histórico frente a precio -0,38 %</span><span class="factor down">Histórico por puesto -0,15 %</span><span class="factor down">Demanda -0,28 %</span><span class="factor up">Próximo rival +0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 57</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +13,9 % / -5,6 %</span>
+        <span class="factor note">Cambio bruto -0,7 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="álvaro cuerda álvarez quijote-pesebre quij" data-club="6a59093bdff783365f1b4e93" data-position="MED" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">QUIJ</span>
+        <div class="player-name"><strong>Álvaro Cuerda Álvarez</strong><small>Quijote-Pesebre</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>5 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>4 · P51</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>4.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>9 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>CHOS</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>5,8 M€</strong></div>
+        <div class="change up"><strong>+0,8 M€</strong><small>+16 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +22 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -0,48 %</span><span class="factor up">Histórico frente a precio +0,49 %</span><span class="factor down">Histórico por puesto -0,05 %</span><span class="factor up">Demanda +0,19 %</span><span class="factor up">Próximo rival +0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 51 · precio 2</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +16 % / -4 %</span>
+        <span class="factor note">Cambio bruto +0,8 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="pablo hernández moreno quijote-pesebre quij" data-club="6a59093bdff783365f1b4e93" data-position="MED" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">QUIJ</span>
+        <div class="player-name"><strong>Pablo Hernández Moreno</strong><small>Quijote-Pesebre</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>12 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>4 · P51</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>4.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>4 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>CHOS</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>11,9 M€</strong></div>
+        <div class="change down"><strong>-0,1 M€</strong><small>-0,8 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -0,32 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -0,48 %</span><span class="factor down">Histórico frente a precio -0,06 %</span><span class="factor down">Histórico por puesto -0,05 %</span><span class="factor down">Demanda -0,58 %</span><span class="factor up">Próximo rival +0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 51 · precio 57</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +13,9 % / -5,6 %</span>
+        <span class="factor note">Cambio bruto -0,1 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="sergio sánchez martínez quijote-pesebre quij" data-club="6a59093bdff783365f1b4e93" data-position="MED" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">QUIJ</span>
+        <div class="player-name"><strong>Sergio Sánchez Martínez</strong><small>Quijote-Pesebre</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>16 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>4 · P51</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>4.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>8 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>CHOS</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>14,9 M€</strong></div>
+        <div class="change down"><strong>-1,1 M€</strong><small>-6,9 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -12,46 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -0,48 %</span><span class="factor down">Histórico frente a precio -0,28 %</span><span class="factor down">Histórico por puesto -0,05 %</span><span class="factor stable">Demanda +0,03 %</span><span class="factor up">Próximo rival +0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 51 · precio 78</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +12,7 % / -6,8 %</span>
+        <span class="factor note">Cambio bruto -1,1 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="set francisco moya jiménez quijote-pesebre quij" data-club="6a59093bdff783365f1b4e93" data-position="MED" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">QUIJ</span>
+        <div class="player-name"><strong>Set Francisco Moya Jiménez</strong><small>Quijote-Pesebre</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>18 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>6 · P74</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>6.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>17 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>CHOS</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>18 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -2,43 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +0,18 %</span><span class="factor down">Histórico frente a precio -0,11 %</span><span class="factor stable">Histórico por puesto +0,02 %</span><span class="factor up">Demanda +1,2 %</span><span class="factor up">Próximo rival +0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 74 · precio 85</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +12 % / -7,4 %</span>
+        <span class="factor note">Cambio bruto Sin cambio</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="alejandro cuerda pérez quijote-pesebre quij" data-club="6a59093bdff783365f1b4e93" data-position="DEL" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">QUIJ</span>
+        <div class="player-name"><strong>Alejandro Cuerda Pérez</strong><small>Quijote-Pesebre</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>5 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>4 · P51</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>4.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>6 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>CHOS</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>5,8 M€</strong></div>
+        <div class="change up"><strong>+0,8 M€</strong><small>+16 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +22 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +0,26 %</span><span class="factor up">Histórico frente a precio +0,49 %</span><span class="factor stable">Histórico por puesto +0,03 %</span><span class="factor down">Demanda -0,28 %</span><span class="factor up">Próximo rival +0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 51 · precio 2</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +16 % / -4 %</span>
+        <span class="factor note">Cambio bruto +0,8 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="álvaro carreño ibáñez quijote-pesebre quij" data-club="6a59093bdff783365f1b4e93" data-position="DEL" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">QUIJ</span>
+        <div class="player-name"><strong>Álvaro Carreño Ibáñez</strong><small>Quijote-Pesebre</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>13 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>4 · P51</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>4.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>5 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>CHOS</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>12,5 M€</strong></div>
+        <div class="change down"><strong>-0,5 M€</strong><small>-3,9 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -4,25 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +0,26 %</span><span class="factor down">Histórico frente a precio -0,14 %</span><span class="factor stable">Histórico por puesto +0,03 %</span><span class="factor down">Demanda -0,43 %</span><span class="factor up">Próximo rival +0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 51 · precio 65</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +13,6 % / -5,9 %</span>
+        <span class="factor note">Cambio bruto -0,5 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="álvaro rodríguez garcía quijote-pesebre quij" data-club="6a59093bdff783365f1b4e93" data-position="DEL" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">QUIJ</span>
+        <div class="player-name"><strong>Álvaro Rodríguez García</strong><small>Quijote-Pesebre</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>21 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>9 · P85</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>9.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>13 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>CHOS</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>21 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -1,67 %</span><span class="factor up">Actuación top +0,18 %</span><span class="factor up">Comparación por puesto +1,8 %</span><span class="factor down">Histórico frente a precio -0,1 %</span><span class="factor up">Histórico por puesto +0,2 %</span><span class="factor up">Demanda +0,8 %</span><span class="factor up">Próximo rival +0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor down">Equilibrio -0,4 M€</span>
+        
+        <span class="factor note">Percentil puntos 85 · precio 96</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +9,5 % / -8,2 %</span>
+        <span class="factor note">Cambio bruto +0,4 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="guillermo paredes farriols quijote-pesebre quij" data-club="6a59093bdff783365f1b4e93" data-position="DEL" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">QUIJ</span>
+        <div class="player-name"><strong>Guillermo Paredes Farriols</strong><small>Quijote-Pesebre</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>14 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>4 · P51</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>4.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>11 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>CHOS</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>13,2 M€</strong></div>
+        <div class="change down"><strong>-0,8 M€</strong><small>-5,7 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -6,98 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +0,26 %</span><span class="factor down">Histórico frente a precio -0,19 %</span><span class="factor stable">Histórico por puesto +0,03 %</span><span class="factor up">Demanda +0,49 %</span><span class="factor up">Próximo rival +0,48 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 51 · precio 69</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +13,3 % / -6,2 %</span>
+        <span class="factor note">Cambio bruto -0,8 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="josé luis serrallé robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="POR" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>José Luis Serrallé</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-por">POR</span>
+        <div class="metric"><small>Valor actual</small><strong>15 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>8 · P82</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>8.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>13 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>15 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +0,83 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -0,2 %</span><span class="factor up">Histórico frente a precio +0,09 %</span><span class="factor stable">Histórico por puesto -0,02 %</span><span class="factor up">Demanda +0,8 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor down">Equilibrio -0,2 M€</span>
+        
+        <span class="factor note">Percentil puntos 82 · precio 73</span>
+        <span class="factor note">Media POR 9.00 pts</span>
+        <span class="factor note">Límite personal +13 % / -6,5 %</span>
+        <span class="factor note">Cambio bruto +0,2 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="asier callejo robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="DEF" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>Asier Callejo</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>8 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>5 · P66</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>5.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>12 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>9,2 M€</strong></div>
+        <div class="change up"><strong>+1,2 M€</strong><small>+15 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +22 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +0,88 %</span><span class="factor up">Histórico frente a precio +0,5 %</span><span class="factor up">Histórico por puesto +0,1 %</span><span class="factor up">Demanda +0,65 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 66 · precio 16</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +15,1 % / -4,6 %</span>
+        <span class="factor note">Cambio bruto +1,2 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="cristian cuerda robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="DEF" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>Cristian Cuerda</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>8 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>5 · P66</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>5.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>12 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>9,2 M€</strong></div>
+        <div class="change up"><strong>+1,2 M€</strong><small>+15 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +22 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +0,88 %</span><span class="factor up">Histórico frente a precio +0,5 %</span><span class="factor up">Histórico por puesto +0,1 %</span><span class="factor up">Demanda +0,65 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 66 · precio 16</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +15,1 % / -4,6 %</span>
+        <span class="factor note">Cambio bruto +1,2 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="enaitz etxeberria robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="DEF" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>Enaitz Etxeberria</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>9,5 M€</strong></div>
+        <div class="change down"><strong>-0,5 M€</strong><small>-5 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -4,43 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,37 %</span><span class="factor down">Histórico frente a precio -0,14 %</span><span class="factor down">Histórico por puesto -0,15 %</span><span class="factor down">Demanda -1,2 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 33</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +14,5 % / -5 %</span>
+        <span class="factor note">Cambio bruto -0,5 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="francisco blázquez robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="DEF" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>Francisco Blázquez</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>25 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>7 · P78</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>7.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>16 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>24,2 M€</strong></div>
+        <div class="change down"><strong>-0,8 M€</strong><small>-3,2 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -6,3 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +1,78 %</span><span class="factor down">Histórico frente a precio -0,22 %</span><span class="factor up">Histórico por puesto +0,2 %</span><span class="factor up">Demanda +1,2 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 78 · precio 99</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +5,5 % / -9 %</span>
+        <span class="factor note">Cambio bruto -0,8 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="marcos rozalén robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="DEF" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>Marcos Rozalén</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>6 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>5 · P66</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>5.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>4 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>6,9 M€</strong></div>
+        <div class="change up"><strong>+0,9 M€</strong><small>+15 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +22 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +0,88 %</span><span class="factor up">Histórico frente a precio +0,59 %</span><span class="factor up">Histórico por puesto +0,1 %</span><span class="factor down">Demanda -0,58 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 66 · precio 7</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +15,7 % / -4,2 %</span>
+        <span class="factor note">Cambio bruto +0,9 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="pepe callejas robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="DEF" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>Pepe Callejas</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-def">DEF</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>5 · P66</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>5.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>6 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>11,5 M€</strong></div>
+        <div class="change up"><strong>+1,5 M€</strong><small>+15 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +15,88 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +0,88 %</span><span class="factor up">Histórico frente a precio +0,33 %</span><span class="factor up">Histórico por puesto +0,1 %</span><span class="factor down">Demanda -0,28 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 66 · precio 33</span>
+        <span class="factor note">Media DEF 3.05 pts</span>
+        <span class="factor note">Límite personal +14,5 % / -5 %</span>
+        <span class="factor note">Cambio bruto +1,5 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="borja garví robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="MED" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>Borja Garví</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>16 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>4 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>14,9 M€</strong></div>
+        <div class="change down"><strong>-1,1 M€</strong><small>-6,9 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -22 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,8 %</span><span class="factor down">Histórico frente a precio -0,59 %</span><span class="factor down">Histórico por puesto -0,2 %</span><span class="factor down">Demanda -0,58 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 78</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +12,7 % / -6,8 %</span>
+        <span class="factor note">Cambio bruto -1,1 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="david muñoz robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="MED" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>David Muñoz</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>12 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>0 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>11,3 M€</strong></div>
+        <div class="change down"><strong>-0,7 M€</strong><small>-5,8 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -18,81 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,8 %</span><span class="factor down">Histórico frente a precio -0,38 %</span><span class="factor down">Histórico por puesto -0,2 %</span><span class="factor down">Demanda -1,2 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 57</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +13,9 % / -5,6 %</span>
+        <span class="factor note">Cambio bruto -0,7 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="isra robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="MED" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>Isra</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>5 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>9,5 M€</strong></div>
+        <div class="change down"><strong>-0,5 M€</strong><small>-5 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -4,43 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,8 %</span><span class="factor down">Histórico frente a precio -0,14 %</span><span class="factor down">Histórico por puesto -0,2 %</span><span class="factor down">Demanda -0,43 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 33</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +14,5 % / -5 %</span>
+        <span class="factor note">Cambio bruto -0,5 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="josé panadés robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="MED" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>José Panadés</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>16 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>10 · P89</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>10.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>7 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>17,1 M€</strong></div>
+        <div class="change up"><strong>+1,1 M€</strong><small>+6,9 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +2,29 %</span><span class="factor up">Actuación top +3,19 %</span><span class="factor up">Comparación por puesto +1,51 %</span><span class="factor up">Histórico frente a precio +0,11 %</span><span class="factor up">Histórico por puesto +0,17 %</span><span class="factor down">Demanda -0,12 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 89 · precio 78</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +12,7 % / -6,8 %</span>
+        <span class="factor note">Cambio bruto +1,1 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="luis ángel albaladejo ramirez robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="MED" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>Luis Ángel Albaladejo Ramirez</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>12 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>1 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>11,3 M€</strong></div>
+        <div class="change down"><strong>-0,7 M€</strong><small>-5,8 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -18,81 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,8 %</span><span class="factor down">Histórico frente a precio -0,38 %</span><span class="factor down">Histórico por puesto -0,2 %</span><span class="factor down">Demanda -1,05 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 57</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +13,9 % / -5,6 %</span>
+        <span class="factor note">Cambio bruto -0,7 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="pablo gonzález robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="MED" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>Pablo González</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-med">MED</span>
+        <div class="metric"><small>Valor actual</small><strong>18 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>12 · P93</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>12.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>17 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>19,8 M€</strong></div>
+        <div class="change up"><strong>+1,8 M€</strong><small>+10 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +0,71 %</span><span class="factor up">Actuación top +6,19 %</span><span class="factor up">Comparación por puesto +1,8 %</span><span class="factor up">Histórico frente a precio +0,08 %</span><span class="factor up">Histórico por puesto +0,2 %</span><span class="factor up">Demanda +1,2 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 93 · precio 85</span>
+        <span class="factor note">Media MED 5.44 pts</span>
+        <span class="factor note">Límite personal +12 % / -7,4 %</span>
+        <span class="factor note">Cambio bruto +1,8 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="carlos garcía robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="DEL" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>Carlos García</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>6 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>4 · P51</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>4.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>3 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>6,9 M€</strong></div>
+        <div class="change up"><strong>+0,9 M€</strong><small>+15 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +22 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +0,26 %</span><span class="factor up">Histórico frente a precio +0,44 %</span><span class="factor stable">Histórico por puesto +0,03 %</span><span class="factor down">Demanda -0,74 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 51 · precio 7</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +15,7 % / -4,2 %</span>
+        <span class="factor note">Cambio bruto +0,9 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="dennis gómez robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="DEL" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>Dennis Gómez</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>7 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>4 · P51</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>4.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>8 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>8,1 M€</strong></div>
+        <div class="change up"><strong>+1,1 M€</strong><small>+15,7 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +20,31 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +0,26 %</span><span class="factor up">Histórico frente a precio +0,4 %</span><span class="factor stable">Histórico por puesto +0,03 %</span><span class="factor stable">Demanda +0,03 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 51 · precio 11</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +15,4 % / -4,4 %</span>
+        <span class="factor note">Cambio bruto +1,1 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="eneko galarza robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="DEL" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>Eneko Galarza</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>15 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>2 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>14 M€</strong></div>
+        <div class="change down"><strong>-1 M€</strong><small>-6,7 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -22 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,54 %</span><span class="factor down">Histórico frente a precio -0,54 %</span><span class="factor down">Histórico por puesto -0,17 %</span><span class="factor down">Demanda -0,89 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 73</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +13 % / -6,5 %</span>
+        <span class="factor note">Cambio bruto -1 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="fabio garví robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="DEL" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>Fabio Garví</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>25 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>4 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>22,8 M€</strong></div>
+        <div class="change down"><strong>-2,2 M€</strong><small>-8,8 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -15,75 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,54 %</span><span class="factor down">Histórico frente a precio -0,81 %</span><span class="factor down">Histórico por puesto -0,17 %</span><span class="factor down">Demanda -0,58 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 99</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +5,5 % / -9 %</span>
+        <span class="factor note">Cambio bruto -2,2 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="jose julian garcía robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="DEL" data-direction="up">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>Jose Julian García</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>10 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>4 · P51</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>4.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>7 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>10,7 M€</strong></div>
+        <div class="change up"><strong>+0,7 M€</strong><small>+7 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +6,28 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +0,26 %</span><span class="factor up">Histórico frente a precio +0,17 %</span><span class="factor stable">Histórico por puesto +0,03 %</span><span class="factor down">Demanda -0,12 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 51 · precio 33</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +14,5 % / -5 %</span>
+        <span class="factor note">Cambio bruto +0,7 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="manuel cuerda robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="DEL" data-direction="stable">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>Manuel Cuerda</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>5 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>0 · No jugó</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>0.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>1 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>5 M€</strong></div>
+        <div class="change stable"><strong>Sin cambio</strong><small>0 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor up">Puntos frente a precio +5,76 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor down">Comparación por puesto -1,54 %</span><span class="factor up">Histórico frente a precio +0,17 %</span><span class="factor down">Histórico por puesto -0,17 %</span><span class="factor down">Demanda -1,05 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor down">Participación -1 %</span><span class="factor down">Equilibrio -0,1 M€</span>
+        
+        <span class="factor note">Percentil puntos 19 · precio 2</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +16 % / -4 %</span>
+        <span class="factor note">Cambio bruto +0,1 M€</span>
+      
+      </div>
+    </article>
+  
+    <article class="player-row" data-search="marcos garví robledo f.c. rob" data-club="6a59093bdff783365f1b4e90" data-position="DEL" data-direction="down">
+      <div class="player-main">
+        <span class="club-token">ROB</span>
+        <div class="player-name"><strong>Marcos Garví</strong><small>Robledo F.C.</small></div>
+        <span class="position pos-del">DEL</span>
+        <div class="metric"><small>Valor actual</small><strong>18 M€</strong></div>
+        <div class="metric"><small>Puntos J1</small><strong>5 · P66</strong></div>
+        <div class="metric"><small>Media histórica</small><strong>5.0 pts</strong></div>
+        <div class="metric"><small>Alineaciones</small><strong>11 de 110</strong></div>
+        <div class="metric"><small>Próximo rival</small><strong>Sin jornada</strong></div>
+        <div class="metric"><small>Valor simulado</small><strong>16,9 M€</strong></div>
+        <div class="change down"><strong>-1,1 M€</strong><small>-6,1 %</small></div>
+      </div>
+      <div class="player-factors">
+        <span class="factor down">Puntos frente a precio -6,97 %</span><span class="factor stable">Actuación top 0 %</span><span class="factor up">Comparación por puesto +0,71 %</span><span class="factor down">Histórico frente a precio -0,19 %</span><span class="factor up">Histórico por puesto +0,08 %</span><span class="factor up">Demanda +0,49 %</span><span class="factor stable">Próximo rival 0 %</span><span class="factor stable">Estado 0 %</span><span class="factor stable">Participación 0 %</span><span class="factor stable">Equilibrio Sin cambio</span>
+        
+        <span class="factor note">Percentil puntos 66 · precio 85</span>
+        <span class="factor note">Media DEL 3.43 pts</span>
+        <span class="factor note">Límite personal +12 % / -7,4 %</span>
+        <span class="factor note">Cambio bruto -1,1 M€</span>
+      
+      </div>
+    </article>
+  </div>
+    <div class="empty" id="empty">No hay jugadores que coincidan con los filtros.</div>
+  </section>
+
+  <footer>
+    Generado el 19 de julio de 2026, 12:29. Próxima jornada detectada: Jornada 2. Valores entre 5 M€ y 30 M€, límite absoluto 16 % y redondeo a 100.000 €. La simulación utiliza únicamente consultas de lectura.
+  </footer>
+</main>
+<script>
+  const controls = [document.querySelector('#search'), document.querySelector('#club'), document.querySelector('#position'), document.querySelector('#direction')];
+  const rows = [...document.querySelectorAll('.player-row')];
+  function filterRows() {
+    const search = controls[0].value.trim().toLowerCase();
+    const club = controls[1].value;
+    const position = controls[2].value;
+    const direction = controls[3].value;
+    let visible = 0;
+    for (const row of rows) {
+      const show = (!search || row.dataset.search.includes(search)) && (!club || row.dataset.club === club) && (!position || row.dataset.position === position) && (!direction || row.dataset.direction === direction);
+      row.hidden = !show;
+      if (show) visible += 1;
+    }
+    document.querySelector('#result-count').textContent = visible + ' de ' + rows.length + ' jugadores';
+    document.querySelector('#empty').style.display = visible ? 'none' : 'block';
+  }
+  controls.forEach((control) => control.addEventListener('input', filterRows));
+  filterRows();
+</script>
+</body>
+</html>

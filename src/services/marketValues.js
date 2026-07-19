@@ -7,8 +7,23 @@ import { buildGameweekScoreMap } from "./scoring.js";
 
 const MIN_MARKET_VALUE = 5000000;
 const MAX_MARKET_VALUE = 30000000;
-const MAX_CHANGE_RATE = 0.3;
+const MAX_CHANGE_RATE = 0.16;
 const VALUE_STEP = 100000;
+const TARGET_MARKET_GROWTH_RATE = 0.0005;
+const MIN_MEANINGFUL_CHANGE_RATE = 0.0075;
+
+export const MARKET_VALUE_RULES = Object.freeze({
+  minValue: MIN_MARKET_VALUE,
+  maxValue: MAX_MARKET_VALUE,
+  maxChangeRate: MAX_CHANGE_RATE,
+  valueStep: VALUE_STEP,
+  targetMarketGrowthRate: TARGET_MARKET_GROWTH_RATE,
+  minMeaningfulChangeRate: MIN_MEANINGFUL_CHANGE_RATE,
+  cheapPlayerMaxRiseRate: 0.16,
+  expensivePlayerMaxRiseRate: 0.03,
+  cheapPlayerMaxDropRate: 0.04,
+  expensivePlayerMaxDropRate: 0.1
+});
 
 const INITIAL_TEAM_STRENGTH = [
   { patterns: ["alcaraz", "cantones", "cant"], value: 1 },
@@ -48,12 +63,13 @@ function initialClubStrength(club) {
   return match?.value ?? 0.5;
 }
 
-function buildPositionAverages(players) {
+function buildPositionAverages(players, valueForPlayer, includePlayer = () => true) {
   const grouped = new Map();
 
   for (const player of players) {
+    if (!includePlayer(player)) continue;
     const row = grouped.get(player.position) || { total: 0, count: 0 };
-    row.total += Number(player.totalPoints || 0);
+    row.total += Number(valueForPlayer(player) || 0);
     row.count += 1;
     grouped.set(player.position, row);
   }
@@ -61,17 +77,56 @@ function buildPositionAverages(players) {
   return new Map([...grouped.entries()].map(([position, row]) => [position, row.count ? row.total / row.count : 0]));
 }
 
-function buildGameweekPositionAverages(players, scoreMap) {
-  const grouped = new Map();
-
-  for (const player of players) {
-    const row = grouped.get(player.position) || { total: 0, count: 0 };
-    row.total += Number(scoreMap.get(player._id.toString()) || 0);
-    row.count += 1;
-    grouped.set(player.position, row);
+export function buildPercentileMap(items, valueForItem) {
+  const values = items
+    .map((item) => ({ id: playerId(item), value: Number(valueForItem(item) || 0) }))
+    .sort((left, right) => left.value - right.value);
+  const percentiles = new Map();
+  if (!values.length) return percentiles;
+  if (values.length === 1) {
+    percentiles.set(values[0].id, 0.5);
+    return percentiles;
   }
 
-  return new Map([...grouped.entries()].map(([position, row]) => [position, row.count ? row.total / row.count : 0]));
+  let start = 0;
+  while (start < values.length) {
+    let end = start;
+    while (end + 1 < values.length && values[end + 1].value === values[start].value) end += 1;
+    const percentile = ((start + end) / 2) / (values.length - 1);
+    for (let index = start; index <= end; index += 1) {
+      percentiles.set(values[index].id, percentile);
+    }
+    start = end + 1;
+  }
+
+  return percentiles;
+}
+
+export function buildPlayerPerformanceStats(gameweeks = []) {
+  const stats = new Map();
+
+  for (const gameweek of gameweeks) {
+    const scoreMap = buildGameweekScoreMap(gameweek);
+    for (const [id, points] of scoreMap.entries()) {
+      const row = stats.get(id) || { points: 0, evaluatedRounds: 0, pointsPerRound: 0 };
+      row.points += Number(points || 0);
+      row.evaluatedRounds += 1;
+      row.pointsPerRound = row.points / row.evaluatedRounds;
+      stats.set(id, row);
+    }
+  }
+
+  return stats;
+}
+
+function buildPlayedPlayerSet(gameweek) {
+  const played = new Set();
+  for (const match of gameweek.matches || []) {
+    for (const score of match.playerScores || []) {
+      if (score.played) played.add(playerId(score.player));
+    }
+  }
+  return played;
 }
 
 async function buildUsageMap(gameweekId) {
@@ -84,10 +139,9 @@ async function buildUsageMap(gameweekId) {
   return new Map(usage.map((row) => [row._id.toString(), row.count]));
 }
 
-async function buildClubStrengthMap(clubs) {
+export function calculateClubStrengths(clubs, finishedGameweeks = []) {
   const strength = new Map(clubs.map((club) => [club._id.toString(), initialClubStrength(club)]));
   const stats = new Map();
-  const finishedGameweeks = await Gameweek.find({ status: "finished" }).lean();
 
   for (const gameweek of finishedGameweeks) {
     for (const match of gameweek.matches || []) {
@@ -134,7 +188,7 @@ async function nextGameweekAfter(gameweek) {
     .lean();
 }
 
-function buildNextOpponentMap(nextGameweek) {
+export function buildNextOpponentMap(nextGameweek) {
   const opponentMap = new Map();
   if (!nextGameweek) return opponentMap;
 
@@ -153,18 +207,231 @@ function relativeSignal(value, average) {
   return clamp((Number(value || 0) - Number(average || 0)) / denominator, -1, 1);
 }
 
-function statusSignal(player) {
-  if (player.status === "injured") return -0.05;
-  if (player.status === "suspended") return -0.07;
+function statusSignal(status) {
+  if (status === "injured") return -0.015;
+  if (status === "suspended") return -0.02;
   return 0;
 }
 
+export function marketValueChangeLimits(oldValue) {
+  const normalizedValue = clamp(Number(oldValue || 0), MIN_MARKET_VALUE, MAX_MARKET_VALUE);
+  const priceLevel = (normalizedValue - MIN_MARKET_VALUE) / (MAX_MARKET_VALUE - MIN_MARKET_VALUE);
+  const riseCurve = [
+    [5000000, 0.16],
+    [10000000, 0.145],
+    [15000000, 0.13],
+    [18000000, 0.12],
+    [20000000, 0.105],
+    [25000000, 0.055],
+    [30000000, 0.03]
+  ];
+  const dropCurve = [
+    [5000000, 0.04],
+    [10000000, 0.05],
+    [15000000, 0.065],
+    [20000000, 0.08],
+    [25000000, 0.09],
+    [30000000, 0.1]
+  ];
+  const interpolate = (curve) => {
+    const upperIndex = curve.findIndex(([value]) => normalizedValue <= value);
+    if (upperIndex <= 0) return curve[0][1];
+    const [upperValue, upperRate] = curve[upperIndex];
+    const [lowerValue, lowerRate] = curve[upperIndex - 1];
+    const progress = (normalizedValue - lowerValue) / (upperValue - lowerValue);
+    return lowerRate + (upperRate - lowerRate) * progress;
+  };
+
+  return {
+    priceLevel,
+    maxRiseRate: interpolate(riseCurve),
+    maxDropRate: interpolate(dropCurve)
+  };
+}
+
+function priceAdjustedPerformanceSignal(pointsPercentile, valuePercentile) {
+  const gap = clamp(Number(pointsPercentile || 0) - Number(valuePercentile || 0), -1, 1);
+  const magnitude = Math.abs(gap);
+  if (!magnitude) return 0;
+
+  const normalizedMagnitude = magnitude <= 0.08
+    ? (magnitude / 0.08) * 0.02
+    : 0.02 + Math.min((magnitude - 0.08) / 0.35, 1) * 0.98;
+  return Math.sign(gap) * normalizedMagnitude;
+}
+
 function calculatedValue(oldValue, changeRate) {
-  const boundedRate = clamp(changeRate, -MAX_CHANGE_RATE, MAX_CHANGE_RATE);
-  const maxDown = oldValue * (1 - MAX_CHANGE_RATE);
-  const maxUp = oldValue * (1 + MAX_CHANGE_RATE);
+  const limits = marketValueChangeLimits(oldValue);
+  const meaningfulRate = Math.abs(changeRate) >= MIN_MEANINGFUL_CHANGE_RATE ? changeRate : 0;
+  const boundedRate = clamp(meaningfulRate, -limits.maxDropRate, limits.maxRiseRate);
   const rawValue = oldValue * (1 + boundedRate);
-  return clamp(roundValue(rawValue), Math.max(MIN_MARKET_VALUE, maxDown), Math.min(MAX_MARKET_VALUE, maxUp));
+  const newValue = clamp(roundValue(rawValue), MIN_MARKET_VALUE, MAX_MARKET_VALUE);
+  return { newValue, boundedRate, ...limits };
+}
+
+export function projectPlayerMarketValue({
+  oldValue = 0,
+  gameweekPoints = 0,
+  gameweekPositionAverage = 0,
+  gameweekPointsPercentile = 0.5,
+  seasonPointsPerRound = 0,
+  seasonPositionAverage = 0,
+  seasonPointsPercentile = 0.5,
+  marketValuePercentile = 0.5,
+  evaluatedRounds = 0,
+  usage = 0,
+  activeUsers = 0,
+  averageUsageRate = 0,
+  opponentStrength = 0.5,
+  hasOpponent = false,
+  playerStatus = "available",
+  hasRoundData = false,
+  playedInGameweek = false
+} = {}) {
+  const normalizedOldValue = Number(oldValue || 0);
+  const normalizedUsage = Number(usage || 0);
+  const normalizedGameweekPoints = Number(gameweekPoints || 0);
+  const normalizedActiveUsers = Number(activeUsers || 0);
+  const hasAnySignal = Boolean(hasRoundData);
+  const usageRate = normalizedActiveUsers > 0 ? normalizedUsage / normalizedActiveUsers : 0;
+  const seasonReliability = clamp(Number(evaluatedRounds || 0) / 5, 0, 1);
+  const priceLimits = marketValueChangeLimits(normalizedOldValue);
+  const valueEfficiencyWeight = clamp(0.22 - Math.max(0, priceLimits.priceLevel - 0.55) * 0.25, 0.14, 0.22);
+
+  const signals = {
+    valueEfficiency: 0,
+    excellence: 0,
+    position: 0,
+    seasonValueEfficiency: 0,
+    seasonPosition: 0,
+    demand: 0,
+    opponent: 0,
+    status: 0,
+    participation: 0
+  };
+
+  if (hasAnySignal && normalizedOldValue > 0) {
+    signals.valueEfficiency = priceAdjustedPerformanceSignal(gameweekPointsPercentile, marketValuePercentile);
+    signals.excellence = clamp((Number(gameweekPointsPercentile) - 0.85) / 0.15, 0, 1);
+    signals.position = relativeSignal(normalizedGameweekPoints, gameweekPositionAverage);
+    signals.seasonValueEfficiency = clamp(Number(seasonPointsPercentile) - Number(marketValuePercentile), -1, 1);
+    signals.seasonPosition = relativeSignal(seasonPointsPerRound, seasonPositionAverage);
+    signals.demand = clamp(
+      (usageRate - Number(averageUsageRate || 0)) / Math.max(Number(averageUsageRate || 0), 0.05),
+      -1,
+      1
+    );
+    signals.opponent = hasOpponent ? clamp(0.5 - Number(opponentStrength ?? 0.5), -0.5, 0.5) : 0;
+    signals.status = statusSignal(playerStatus);
+    signals.participation = playedInGameweek ? 0 : -0.01;
+  }
+
+  const contributions = {
+    valueEfficiency: signals.valueEfficiency * valueEfficiencyWeight,
+    excellence: signals.excellence * 0.11,
+    position: signals.position * 0.018,
+    seasonValueEfficiency: signals.seasonValueEfficiency * 0.05 * seasonReliability,
+    seasonPosition: signals.seasonPosition * 0.01 * seasonReliability,
+    demand: signals.demand * 0.012,
+    opponent: signals.opponent * 0.015,
+    status: signals.status,
+    participation: signals.participation
+  };
+  const rawChangeRate = Object.values(contributions).reduce((sum, value) => sum + value, 0);
+  const calculated = hasAnySignal && normalizedOldValue > 0
+    ? calculatedValue(normalizedOldValue, rawChangeRate)
+    : { newValue: normalizedOldValue, boundedRate: 0, ...marketValueChangeLimits(normalizedOldValue) };
+
+  return {
+    oldValue: normalizedOldValue,
+    newValue: calculated.newValue,
+    change: calculated.newValue - normalizedOldValue,
+    changeRate: normalizedOldValue > 0
+      ? Number(((calculated.newValue - normalizedOldValue) / normalizedOldValue).toFixed(4))
+      : 0,
+    rawChangeRate,
+    boundedRate: calculated.boundedRate,
+    usageRate,
+    averageUsageRate: Number(averageUsageRate || 0),
+    seasonReliability,
+    valueEfficiencyWeight,
+    maxRiseRate: calculated.maxRiseRate,
+    maxDropRate: calculated.maxDropRate,
+    marketValuePercentile: Number(marketValuePercentile || 0),
+    gameweekPointsPercentile: Number(gameweekPointsPercentile || 0),
+    seasonPointsPercentile: Number(seasonPointsPercentile || 0),
+    hasAnySignal,
+    signals,
+    contributions
+  };
+}
+
+export function balanceMarketValueProjections(projections = [], totalMarketValue = 0) {
+  const targetChange = roundValue(Number(totalMarketValue || 0) * TARGET_MARKET_GROWTH_RATE);
+  const rises = projections.reduce((sum, projection) => sum + Math.max(0, projection.change), 0);
+  const drops = projections.reduce((sum, projection) => sum + Math.max(0, -projection.change), 0);
+  const rawNetChange = rises - drops;
+
+  const balanced = projections.map((projection) => {
+    const unbalancedNewValue = projection.newValue;
+    const unbalancedChange = projection.change;
+
+    return {
+      ...projection,
+      unbalancedNewValue,
+      unbalancedChange,
+      balanceScale: 1,
+      balanceAdjustment: 0
+    };
+  });
+
+  const refreshProjection = (projection, newValue) => {
+    projection.newValue = newValue;
+    projection.change = newValue - projection.oldValue;
+    projection.changeRate = projection.oldValue > 0
+      ? Number((projection.change / projection.oldValue).toFixed(4))
+      : 0;
+    projection.balanceAdjustment = newValue - projection.unbalancedNewValue;
+    projection.balanceScale = projection.unbalancedChange
+      ? Math.abs(projection.change / projection.unbalancedChange)
+      : 1;
+  };
+
+  let adjustmentRemaining = Math.abs(rawNetChange - targetChange);
+  if (rawNetChange > targetChange) {
+    const candidates = balanced
+      .filter((projection) => projection.change > 0)
+      .sort((left, right) => left.rawChangeRate - right.rawChangeRate || left.change - right.change);
+    for (const projection of candidates) {
+      if (adjustmentRemaining <= 0) break;
+      const reduction = Math.min(projection.change, adjustmentRemaining);
+      refreshProjection(projection, projection.newValue - reduction);
+      adjustmentRemaining -= reduction;
+    }
+  } else if (rawNetChange < targetChange) {
+    const candidates = balanced
+      .filter((projection) => projection.change < 0)
+      .sort((left, right) => right.rawChangeRate - left.rawChangeRate || right.change - left.change);
+    for (const projection of candidates) {
+      if (adjustmentRemaining <= 0) break;
+      const reduction = Math.min(-projection.change, adjustmentRemaining);
+      refreshProjection(projection, projection.newValue + reduction);
+      adjustmentRemaining -= reduction;
+    }
+  }
+
+  const balancedRises = balanced.reduce((sum, projection) => sum + Math.max(0, projection.change), 0);
+  const balancedDrops = balanced.reduce((sum, projection) => sum + Math.max(0, -projection.change), 0);
+  const balancedNetChange = balancedRises - balancedDrops;
+
+  return {
+    projections: balanced,
+    targetChange,
+    rawNetChange,
+    balancedNetChange,
+    riseScale: rises > 0 ? balancedRises / rises : 1,
+    dropScale: drops > 0 ? balancedDrops / drops : 1
+  };
 }
 
 export function buildMarketValueHistoryEntry(gameweek, valueBefore, valueAfter, recordedAt = new Date()) {
@@ -189,22 +456,44 @@ export async function updateMarketValuesAfterGameweek(gameweekId) {
   if (!gameweek) return { updated: 0, unchanged: 0, updates: [] };
   const marketValueUpdatedAt = new Date();
 
-  const [players, clubs, activeUsers, usageMap, nextGameweek] = await Promise.all([
+  const [players, clubs, activeUsers, usageMap, nextGameweek, gameweeks] = await Promise.all([
     Player.find({}).select("+marketValueHistory").lean(),
     Club.find({}).lean(),
     User.countDocuments({ role: "user", status: "active" }),
     buildUsageMap(gameweek._id),
-    nextGameweekAfter(gameweek)
+    nextGameweekAfter(gameweek),
+    Gameweek.find({}).sort({ number: 1 }).lean()
   ]);
 
   const scoreMap = buildGameweekScoreMap(gameweek);
-  const seasonAverages = buildPositionAverages(players);
-  const gameweekAverages = buildGameweekPositionAverages(players, scoreMap);
-  const clubStrength = await buildClubStrengthMap(clubs);
+  const playedPlayerIds = buildPlayedPlayerSet(gameweek);
+  const evaluatedPlayers = players.filter((player) => scoreMap.has(playerId(player)));
+  const projectedFinishedGameweeks = gameweeks.filter(
+    (candidate) => candidate.status === "finished" || playerId(candidate._id) === playerId(gameweek._id)
+  );
+  const performanceStats = buildPlayerPerformanceStats(projectedFinishedGameweeks);
+  const seasonEvaluatedPlayers = players.filter((player) => Number(performanceStats.get(playerId(player))?.evaluatedRounds || 0) > 0);
+  const marketValuePercentiles = buildPercentileMap(players, (player) => player.marketValue);
+  const gameweekPointsPercentiles = buildPercentileMap(evaluatedPlayers, (player) => scoreMap.get(playerId(player)) || 0);
+  const seasonPointsPercentiles = buildPercentileMap(
+    seasonEvaluatedPlayers,
+    (player) => performanceStats.get(playerId(player))?.pointsPerRound || 0
+  );
+  const gameweekPositionAverages = buildPositionAverages(
+    evaluatedPlayers,
+    (player) => scoreMap.get(playerId(player)) || 0
+  );
+  const seasonPositionAverages = buildPositionAverages(
+    seasonEvaluatedPlayers,
+    (player) => performanceStats.get(playerId(player))?.pointsPerRound || 0
+  );
+  const totalUsage = [...usageMap.values()].reduce((sum, count) => sum + Number(count || 0), 0);
+  const averageUsageRate = activeUsers > 0 && evaluatedPlayers.length > 0
+    ? totalUsage / (activeUsers * evaluatedPlayers.length)
+    : 0;
+  const clubStrength = calculateClubStrengths(clubs, projectedFinishedGameweeks);
   const nextOpponentMap = buildNextOpponentMap(nextGameweek);
-  const updates = [];
-  const operations = [];
-  let unchanged = 0;
+  const pending = [];
   let alreadyRecorded = 0;
 
   for (const player of players) {
@@ -214,37 +503,50 @@ export async function updateMarketValuesAfterGameweek(gameweekId) {
     );
     if (existingHistory) {
       alreadyRecorded += 1;
-      unchanged += 1;
       continue;
     }
 
+    const stats = performanceStats.get(id) || { points: 0, evaluatedRounds: 0, pointsPerRound: 0 };
     const oldValue = Number(player.marketValue || 0);
     const usage = Number(usageMap.get(id) || 0);
     const gameweekPoints = Number(scoreMap.get(id) || 0);
-    const appearedInGameweek = scoreMap.has(id);
-    const hasAnySignal = appearedInGameweek || usage > 0 || Number(player.totalPoints || 0) !== 0;
     const opponentId = nextOpponentMap.get(clubId(player.club)) || null;
-    let newValue = oldValue;
+    const projection = projectPlayerMarketValue({
+      oldValue,
+      gameweekPoints,
+      gameweekPositionAverage: gameweekPositionAverages.get(player.position),
+      gameweekPointsPercentile: gameweekPointsPercentiles.get(id) ?? 0.5,
+      seasonPointsPerRound: stats.pointsPerRound,
+      seasonPositionAverage: seasonPositionAverages.get(player.position),
+      seasonPointsPercentile: seasonPointsPercentiles.get(id) ?? 0.5,
+      marketValuePercentile: marketValuePercentiles.get(id) ?? 0.5,
+      evaluatedRounds: stats.evaluatedRounds,
+      usage,
+      activeUsers,
+      averageUsageRate,
+      opponentStrength: opponentId ? clubStrength.get(opponentId) ?? 0.5 : 0.5,
+      hasOpponent: Boolean(opponentId),
+      playerStatus: player.status,
+      hasRoundData: scoreMap.has(id),
+      playedInGameweek: playedPlayerIds.has(id)
+    });
 
-    if (hasAnySignal && oldValue > 0) {
-      const seasonSignal = relativeSignal(player.totalPoints, seasonAverages.get(player.position));
-      const roundSignal = relativeSignal(gameweekPoints, gameweekAverages.get(player.position));
-      const usageRate = activeUsers > 0 ? usage / activeUsers : 0;
-      const demandSignal = clamp((usageRate - 0.22) / 0.78, -0.35, 1);
-      const opponentStrength = opponentId ? clubStrength.get(opponentId) ?? 0.5 : 0.5;
-      const opponentSignal = opponentId ? clamp(0.5 - opponentStrength, -0.5, 0.5) : 0;
-      const currentParticipationSignal = appearedInGameweek && gameweekPoints > 0 ? 0.015 : appearedInGameweek ? -0.01 : 0;
+    pending.push({ player, stats, oldValue, usage, gameweekPoints, opponentId, projection });
+  }
 
-      const changeRate =
-        seasonSignal * 0.11 +
-        roundSignal * 0.09 +
-        demandSignal * 0.07 +
-        opponentSignal * 0.1 +
-        statusSignal(player) +
-        currentParticipationSignal;
+  const totalMarketValue = players.reduce((sum, player) => sum + Number(player.marketValue || 0), 0);
+  const marketBalance = balanceMarketValueProjections(
+    pending.map((row) => row.projection),
+    totalMarketValue
+  );
+  const updates = [];
+  const operations = [];
+  let unchanged = alreadyRecorded;
 
-      newValue = calculatedValue(oldValue, changeRate);
-    }
+  for (let index = 0; index < pending.length; index += 1) {
+    const { player, stats, oldValue, usage, gameweekPoints, opponentId } = pending[index];
+    const projection = marketBalance.projections[index];
+    const newValue = projection.newValue;
 
     const historyEntry = buildMarketValueHistoryEntry(gameweek, oldValue, newValue, marketValueUpdatedAt);
     operations.push({
@@ -275,9 +577,10 @@ export async function updateMarketValuesAfterGameweek(gameweekId) {
       newValue,
       changeRate: historyEntry.changeRate,
       gameweekPoints,
-      totalPoints: Number(player.totalPoints || 0),
+      totalPoints: Number(stats.points || 0),
       lineupUsage: usage,
-      nextOpponent: opponentId
+      nextOpponent: opponentId,
+      projection
     });
   }
 
@@ -291,6 +594,13 @@ export async function updateMarketValuesAfterGameweek(gameweekId) {
     minValue: MIN_MARKET_VALUE,
     maxValue: MAX_MARKET_VALUE,
     maxChangeRate: MAX_CHANGE_RATE,
+    marketBalance: {
+      targetChange: marketBalance.targetChange,
+      rawNetChange: marketBalance.rawNetChange,
+      balancedNetChange: marketBalance.balancedNetChange,
+      riseScale: marketBalance.riseScale,
+      dropScale: marketBalance.dropScale
+    },
     updates
   };
 }

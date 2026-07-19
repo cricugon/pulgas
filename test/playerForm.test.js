@@ -2,12 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { calculatePlayerForms, classifyPlayerForm, PLAYER_FORM_LEVELS } from "../src/services/playerForm.js";
 
-test("clasifica cinco niveles alrededor de la media de posicion", () => {
-  assert.equal(classifyPlayerForm(16, 10), PLAYER_FORM_LEVELS.VERY_UP);
-  assert.equal(classifyPlayerForm(12, 10), PLAYER_FORM_LEVELS.UP);
-  assert.equal(classifyPlayerForm(10, 10), PLAYER_FORM_LEVELS.NEUTRAL);
-  assert.equal(classifyPlayerForm(7, 10), PLAYER_FORM_LEVELS.DOWN);
-  assert.equal(classifyPlayerForm(4, 10), PLAYER_FORM_LEVELS.VERY_DOWN);
+test("reserva los extremos para actuaciones excepcionalmente alejadas", () => {
+  const benchmark = { reference: 6, spread: 3 };
+
+  assert.equal(classifyPlayerForm(15, benchmark), PLAYER_FORM_LEVELS.VERY_UP);
+  assert.equal(classifyPlayerForm(10, benchmark), PLAYER_FORM_LEVELS.UP);
+  assert.equal(classifyPlayerForm(4, benchmark), PLAYER_FORM_LEVELS.NEUTRAL);
+  assert.equal(classifyPlayerForm(3, benchmark), PLAYER_FORM_LEVELS.DOWN);
+  assert.equal(classifyPlayerForm(-1, benchmark), PLAYER_FORM_LEVELS.VERY_DOWN);
 });
 
 test("calcula medias por posicion y deja neutrales a clubes sin partido", () => {
@@ -35,17 +37,19 @@ test("calcula medias por posicion y deja neutrales a clubes sin partido", () => 
   const forms = new Map(result.updates.map((row) => [String(row.player), row.form]));
 
   assert.deepEqual(result.averages, { POR: 10, DEF: 10 });
-  assert.equal(forms.get("p1"), PLAYER_FORM_LEVELS.VERY_UP);
-  assert.equal(forms.get("p2"), PLAYER_FORM_LEVELS.VERY_DOWN);
+  assert.equal(forms.get("p1"), PLAYER_FORM_LEVELS.UP);
+  assert.equal(forms.get("p2"), PLAYER_FORM_LEVELS.NEUTRAL);
   assert.equal(forms.get("p3"), PLAYER_FORM_LEVELS.NEUTRAL);
-  assert.equal(forms.get("p4"), PLAYER_FORM_LEVELS.VERY_DOWN);
+  assert.equal(forms.get("p4"), PLAYER_FORM_LEVELS.DOWN);
   assert.equal(forms.get("p5"), PLAYER_FORM_LEVELS.NEUTRAL);
 });
 
-test("tolera medias negativas y mantiene el sentido de mejor o peor", () => {
-  assert.equal(classifyPlayerForm(1, -2), PLAYER_FORM_LEVELS.VERY_UP);
-  assert.equal(classifyPlayerForm(-2, -2), PLAYER_FORM_LEVELS.NEUTRAL);
-  assert.equal(classifyPlayerForm(-5, -2), PLAYER_FORM_LEVELS.VERY_DOWN);
+test("una puntuacion normal no se vuelve extrema por una media sesgada", () => {
+  const benchmark = { reference: 5.5, spread: 4.45 };
+
+  assert.equal(classifyPlayerForm(4, benchmark), PLAYER_FORM_LEVELS.NEUTRAL);
+  assert.equal(classifyPlayerForm(12, benchmark), PLAYER_FORM_LEVELS.UP);
+  assert.equal(classifyPlayerForm(17, benchmark), PLAYER_FORM_LEVELS.VERY_UP);
 });
 
 test("no premia a un jugador que no participo aunque la media sea negativa", () => {
@@ -66,5 +70,5 @@ test("no premia a un jugador que no participo aunque la media sea negativa", () 
 
   const result = calculatePlayerForms(players, gameweek);
   const substitute = result.updates.find((row) => String(row.player) === "p2");
-  assert.equal(substitute.form, PLAYER_FORM_LEVELS.VERY_DOWN);
+  assert.equal(substitute.form, PLAYER_FORM_LEVELS.DOWN);
 });

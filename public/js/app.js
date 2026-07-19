@@ -456,6 +456,118 @@ function valueEfficiency(player) {
   return Number(player?.totalPoints || 0) / playerMillions(player);
 }
 
+function sortedMarketValueHistory(player) {
+  return [...(player?.marketValueHistory || [])]
+    .filter((entry) => Number.isFinite(Number(entry.valueBefore)) && Number.isFinite(Number(entry.valueAfter)))
+    .sort((a, b) => {
+      const numberDelta = Number(a.gameweekNumber || 0) - Number(b.gameweekNumber || 0);
+      if (numberDelta !== 0) return numberDelta;
+      return new Date(a.recordedAt || 0).getTime() - new Date(b.recordedAt || 0).getTime();
+    });
+}
+
+function marketValueSeries(player) {
+  const history = sortedMarketValueHistory(player);
+  const currentValue = Number(player?.marketValue || 0);
+  if (!history.length) return [{ label: "Inicio", value: currentValue, change: 0, baseline: true }];
+
+  const series = [
+    { label: "Inicio", value: Number(history[0].valueBefore || 0), change: 0, baseline: true },
+    ...history.map((entry) => ({
+      label: entry.gameweekName || `Jornada ${entry.gameweekNumber}`,
+      value: Number(entry.valueAfter || 0),
+      change: Number(entry.change || 0),
+      gameweekNumber: Number(entry.gameweekNumber || 0)
+    }))
+  ];
+  const latestValue = Number(series.at(-1)?.value || 0);
+  if (latestValue !== currentValue) {
+    series.push({ label: "Actual", value: currentValue, change: currentValue - latestValue });
+  }
+  return series;
+}
+
+function formatMillions(value) {
+  return `${new Intl.NumberFormat("es-ES", { maximumFractionDigits: 1 }).format(Number(value || 0) / 1000000)} M`;
+}
+
+function renderMarketValueChart(player) {
+  const series = marketValueSeries(player);
+  const values = series.map((point) => point.value);
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  const padding = Math.max((rawMax - rawMin) * 0.18, 500000);
+  const lower = Math.max(0, rawMin - padding);
+  const upper = rawMax + padding;
+  const range = Math.max(upper - lower, 1);
+  const width = 680;
+  const height = 210;
+  const insetX = 18;
+  const insetY = 16;
+  const plotWidth = width - insetX * 2;
+  const plotHeight = height - insetY * 2;
+  const xFor = (index) => series.length === 1
+    ? width / 2
+    : insetX + (index / (series.length - 1)) * plotWidth;
+  const yFor = (value) => insetY + ((upper - value) / range) * plotHeight;
+  const linePoints = series.length === 1
+    ? `${insetX},${yFor(series[0].value)} ${width - insetX},${yFor(series[0].value)}`
+    : series.map((point, index) => `${xFor(index)},${yFor(point.value)}`).join(" ");
+  const gridLines = [0, 0.5, 1]
+    .map((ratio) => {
+      const y = insetY + ratio * plotHeight;
+      return `<line x1="${insetX}" y1="${y}" x2="${width - insetX}" y2="${y}" />`;
+    })
+    .join("");
+  const circles = series
+    .map((point, index) => {
+      const pointClass = point.change > 0 ? "up" : point.change < 0 ? "down" : "stable";
+      return `
+        <circle class="${pointClass}" cx="${xFor(index)}" cy="${yFor(point.value)}" r="5">
+          <title>${escapeHtml(point.label)}: ${escapeHtml(formatEuro(point.value))}${point.baseline ? "" : ` (${escapeHtml(formatSignedEuro(point.change))})`}</title>
+        </circle>
+      `;
+    })
+    .join("");
+
+  return `
+    <div class="market-value-chart" role="img" aria-label="Evolucion del valor de mercado desde ${escapeHtml(formatEuro(values[0]))} hasta ${escapeHtml(formatEuro(values.at(-1)))}">
+      <div class="market-chart-scale" aria-hidden="true"><span>${formatMillions(upper)}</span><span>${formatMillions((upper + lower) / 2)}</span><span>${formatMillions(lower)}</span></div>
+      <div class="market-chart-plot">
+        <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
+          <g class="market-chart-grid">${gridLines}</g>
+          <polyline class="market-chart-line" points="${linePoints}" />
+          <g class="market-chart-points">${circles}</g>
+        </svg>
+        <div class="market-chart-labels"><span>${escapeHtml(series[0].label)}</span><span>${escapeHtml(series.at(-1).label)}</span></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderMarketValueHistory(player) {
+  const history = sortedMarketValueHistory(player);
+  if (!history.length) {
+    return `<p class="market-history-empty">El valor original ya esta preparado. La primera variacion se registrara al cerrar esta jornada.</p>`;
+  }
+
+  return `
+    <div class="market-history-list">
+      ${[...history].reverse().map((entry) => {
+        const change = Number(entry.change || 0);
+        const changeClass = change > 0 ? "positive" : change < 0 ? "negative" : "stable";
+        return `
+          <div class="market-history-row">
+            <span><strong>${escapeHtml(entry.gameweekName || `Jornada ${entry.gameweekNumber}`)}</strong><small>${formatDateTime(entry.recordedAt)}</small></span>
+            <strong>${formatEuro(entry.valueAfter)}</strong>
+            <b class="${changeClass}">${formatSignedEuro(change)}</b>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
 function undervaluedScore(player) {
   return Number(player?.totalPoints || 0) * 1.35 - playerMillions(player);
 }
@@ -1209,8 +1321,12 @@ function renderSportsPlayerDetail(data) {
     .filter((row) => row.match && !row.match.isScored && ["draft", "live"].includes(row.status))
     .sort((a, b) => Number(a.number) - Number(b.number))[0];
   const currentValue = Number(player.marketValue || 0);
-  const previousValue = Number(player.previousMarketValue || currentValue - Number(player.marketValueChange || 0) || currentValue);
-  const changePercent = previousValue ? (Number(player.marketValueChange || 0) / previousValue) * 100 : 0;
+  const marketHistory = sortedMarketValueHistory(player);
+  const latestMarketEntry = marketHistory.at(-1);
+  const latestMarketChange = Number(latestMarketEntry?.change ?? player.marketValueChange ?? 0);
+  const fallbackPreviousValue = Number(player.previousMarketValue || currentValue - latestMarketChange || currentValue);
+  const previousValue = Number(latestMarketEntry?.valueBefore ?? fallbackPreviousValue);
+  const changePercent = previousValue ? (latestMarketChange / previousValue) * 100 : 0;
   const maxUsage = Math.max(...rows.map((row) => Number(row.usedBy || 0)), 1);
   const availability = playerAvailability(player);
 
@@ -1236,7 +1352,7 @@ function renderSportsPlayerDetail(data) {
     <div class="player-detail-panels">
       ${renderProfileSummaryTab({ player, club, data, average, nextMatch, availability })}
       ${renderProfilePointsTab(rows)}
-      ${renderProfileValueTab({ player, currentValue, previousValue, changePercent })}
+      ${renderProfileValueTab({ player, currentValue, previousValue, changePercent, latestMarketChange })}
       ${renderProfileUsageTab({ rows, total: data.summary.totalLineups, maxUsage })}
       ${renderProfileNewsTab(data.relatedNews || [])}
     </div>
@@ -1304,18 +1420,22 @@ function renderProfilePointsTab(rows) {
   `;
 }
 
-function renderProfileValueTab({ player, currentValue, previousValue, changePercent }) {
+function renderProfileValueTab({ player, currentValue, previousValue, changePercent, latestMarketChange }) {
   return `
     <section class="player-detail-tab-panel" data-player-detail-panel="value">
       <div class="value-overview"><span>Valor de mercado</span><strong>${formatEuro(currentValue)}</strong>${stableMarketBadge(player)}</div>
       <div class="value-comparison">
         <div><small>Valor anterior</small><strong>${formatEuro(previousValue)}</strong></div>
-        <div><small>Ultimo cambio</small><strong class="${Number(player.marketValueChange || 0) > 0 ? "positive" : Number(player.marketValueChange || 0) < 0 ? "negative" : ""}">${formatSignedEuro(player.marketValueChange || 0)}</strong></div>
+        <div><small>Ultimo cambio</small><strong class="${latestMarketChange > 0 ? "positive" : latestMarketChange < 0 ? "negative" : ""}">${formatSignedEuro(latestMarketChange)}</strong></div>
         <div><small>Variacion</small><strong class="${changePercent > 0 ? "positive" : changePercent < 0 ? "negative" : ""}">${changePercent > 0 ? "+" : ""}${changePercent.toFixed(1)}%</strong></div>
         <div><small>Calidad / precio</small><strong>${valueEfficiency(player).toFixed(2)} pts/M</strong></div>
       </div>
       <div class="value-track" aria-label="Cambio de valor respecto a la actualizacion anterior"><span style="width:${Math.min(100, Math.max(8, 50 + changePercent))}%"></span></div>
-      <p class="profile-note">La app conserva el valor anterior y el ultimo cambio calculado al cerrar jornada.</p>
+      <section class="market-history-section">
+        <div class="profile-section-title"><h3>Evolucion de mercado</h3><span>${sortedMarketValueHistory(player).length} jornadas registradas</span></div>
+        ${renderMarketValueChart(player)}
+        ${renderMarketValueHistory(player)}
+      </section>
     </section>
   `;
 }

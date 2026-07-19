@@ -1,5 +1,19 @@
 import mongoose from "mongoose";
 
+const marketValueHistorySchema = new mongoose.Schema(
+  {
+    gameweek: { type: mongoose.Schema.Types.ObjectId, ref: "Gameweek", required: true },
+    gameweekNumber: { type: Number, required: true, min: 1 },
+    gameweekName: { type: String, required: true, trim: true },
+    valueBefore: { type: Number, required: true, min: 0 },
+    valueAfter: { type: Number, required: true, min: 0 },
+    change: { type: Number, required: true, default: 0 },
+    changeRate: { type: Number, required: true, default: 0 },
+    recordedAt: { type: Date, required: true, default: Date.now }
+  },
+  { _id: false }
+);
+
 const playerSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -13,6 +27,7 @@ const playerSchema = new mongoose.Schema(
     previousMarketValue: { type: Number, default: 0, min: 0 },
     marketValueChange: { type: Number, default: 0 },
     marketValueUpdatedAt: { type: Date, default: null },
+    marketValueHistory: { type: [marketValueHistorySchema], default: [], select: false },
     totalPoints: { type: Number, default: 0 },
     form: { type: Number, default: 50, min: 0, max: 100 },
     photoData: { type: Buffer, select: false },

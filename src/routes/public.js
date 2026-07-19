@@ -167,7 +167,7 @@ publicRouter.get("/players/:id/photo", async (req, res) => {
 });
 
 publicRouter.get("/players/:id/stats", async (req, res) => {
-  const player = await Player.findById(req.params.id).populate("club");
+  const player = await Player.findById(req.params.id).select("+marketValueHistory").populate("club");
   if (!player) {
     return res.status(404).json({ message: "Jugador no encontrado." });
   }

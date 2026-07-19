@@ -167,13 +167,30 @@ function calculatedValue(oldValue, changeRate) {
   return clamp(roundValue(rawValue), Math.max(MIN_MARKET_VALUE, maxDown), Math.min(MAX_MARKET_VALUE, maxUp));
 }
 
+export function buildMarketValueHistoryEntry(gameweek, valueBefore, valueAfter, recordedAt = new Date()) {
+  const before = Number(valueBefore || 0);
+  const after = Number(valueAfter || 0);
+  const change = after - before;
+
+  return {
+    gameweek: gameweek._id,
+    gameweekNumber: Number(gameweek.number),
+    gameweekName: String(gameweek.name || `Jornada ${gameweek.number}`),
+    valueBefore: before,
+    valueAfter: after,
+    change,
+    changeRate: before > 0 ? Number((change / before).toFixed(4)) : 0,
+    recordedAt
+  };
+}
+
 export async function updateMarketValuesAfterGameweek(gameweekId) {
   const gameweek = await Gameweek.findById(gameweekId).lean();
   if (!gameweek) return { updated: 0, unchanged: 0, updates: [] };
   const marketValueUpdatedAt = new Date();
 
   const [players, clubs, activeUsers, usageMap, nextGameweek] = await Promise.all([
-    Player.find({}).lean(),
+    Player.find({}).select("+marketValueHistory").lean(),
     Club.find({}).lean(),
     User.countDocuments({ role: "user", status: "active" }),
     buildUsageMap(gameweek._id),
@@ -186,74 +203,91 @@ export async function updateMarketValuesAfterGameweek(gameweekId) {
   const clubStrength = await buildClubStrengthMap(clubs);
   const nextOpponentMap = buildNextOpponentMap(nextGameweek);
   const updates = [];
+  const operations = [];
   let unchanged = 0;
-
-  await Player.updateMany({}, { $set: { marketValueChange: 0, marketValueUpdatedAt } });
+  let alreadyRecorded = 0;
 
   for (const player of players) {
     const id = player._id.toString();
+    const existingHistory = (player.marketValueHistory || []).find(
+      (entry) => playerId(entry.gameweek) === playerId(gameweek._id)
+    );
+    if (existingHistory) {
+      alreadyRecorded += 1;
+      unchanged += 1;
+      continue;
+    }
+
     const oldValue = Number(player.marketValue || 0);
     const usage = Number(usageMap.get(id) || 0);
     const gameweekPoints = Number(scoreMap.get(id) || 0);
     const appearedInGameweek = scoreMap.has(id);
     const hasAnySignal = appearedInGameweek || usage > 0 || Number(player.totalPoints || 0) !== 0;
+    const opponentId = nextOpponentMap.get(clubId(player.club)) || null;
+    let newValue = oldValue;
 
-    if (!hasAnySignal || oldValue <= 0) {
-      unchanged += 1;
-      continue;
+    if (hasAnySignal && oldValue > 0) {
+      const seasonSignal = relativeSignal(player.totalPoints, seasonAverages.get(player.position));
+      const roundSignal = relativeSignal(gameweekPoints, gameweekAverages.get(player.position));
+      const usageRate = activeUsers > 0 ? usage / activeUsers : 0;
+      const demandSignal = clamp((usageRate - 0.22) / 0.78, -0.35, 1);
+      const opponentStrength = opponentId ? clubStrength.get(opponentId) ?? 0.5 : 0.5;
+      const opponentSignal = opponentId ? clamp(0.5 - opponentStrength, -0.5, 0.5) : 0;
+      const currentParticipationSignal = appearedInGameweek && gameweekPoints > 0 ? 0.015 : appearedInGameweek ? -0.01 : 0;
+
+      const changeRate =
+        seasonSignal * 0.11 +
+        roundSignal * 0.09 +
+        demandSignal * 0.07 +
+        opponentSignal * 0.1 +
+        statusSignal(player) +
+        currentParticipationSignal;
+
+      newValue = calculatedValue(oldValue, changeRate);
     }
 
-    const seasonSignal = relativeSignal(player.totalPoints, seasonAverages.get(player.position));
-    const roundSignal = relativeSignal(gameweekPoints, gameweekAverages.get(player.position));
-    const usageRate = activeUsers > 0 ? usage / activeUsers : 0;
-    const demandSignal = clamp((usageRate - 0.22) / 0.78, -0.35, 1);
-    const opponentId = nextOpponentMap.get(clubId(player.club));
-    const opponentStrength = opponentId ? clubStrength.get(opponentId) ?? 0.5 : 0.5;
-    const opponentSignal = opponentId ? clamp(0.5 - opponentStrength, -0.5, 0.5) : 0;
-    const currentParticipationSignal = appearedInGameweek && gameweekPoints > 0 ? 0.015 : appearedInGameweek ? -0.01 : 0;
+    const historyEntry = buildMarketValueHistoryEntry(gameweek, oldValue, newValue, marketValueUpdatedAt);
+    operations.push({
+      updateOne: {
+        filter: { _id: player._id, "marketValueHistory.gameweek": { $ne: gameweek._id } },
+        update: {
+          $set: {
+            previousMarketValue: oldValue,
+            marketValue: newValue,
+            marketValueChange: historyEntry.change,
+            marketValueUpdatedAt
+          },
+          $push: { marketValueHistory: historyEntry }
+        }
+      }
+    });
 
-    const changeRate =
-      seasonSignal * 0.11 +
-      roundSignal * 0.09 +
-      demandSignal * 0.07 +
-      opponentSignal * 0.1 +
-      statusSignal(player) +
-      currentParticipationSignal;
-
-    const newValue = calculatedValue(oldValue, changeRate);
     if (newValue === oldValue) {
       unchanged += 1;
       continue;
     }
 
-    await Player.updateOne(
-      { _id: player._id },
-      {
-        $set: {
-          previousMarketValue: oldValue,
-          marketValue: newValue,
-          marketValueChange: newValue - oldValue,
-          marketValueUpdatedAt
-        }
-      }
-    );
     updates.push({
       player: player._id,
       name: player.name,
       position: player.position,
       oldValue,
       newValue,
-      changeRate: Number(((newValue - oldValue) / oldValue).toFixed(4)),
+      changeRate: historyEntry.changeRate,
       gameweekPoints,
       totalPoints: Number(player.totalPoints || 0),
       lineupUsage: usage,
-      nextOpponent: opponentId || null
+      nextOpponent: opponentId
     });
   }
+
+  if (operations.length) await Player.bulkWrite(operations, { ordered: false });
 
   return {
     updated: updates.length,
     unchanged,
+    historyRecorded: operations.length,
+    alreadyRecorded,
     minValue: MIN_MARKET_VALUE,
     maxValue: MAX_MARKET_VALUE,
     maxChangeRate: MAX_CHANGE_RATE,

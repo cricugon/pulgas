@@ -6,7 +6,8 @@ export async function publishNews({
   body = "",
   metadata = {},
   eventKey = "",
-  dedupeFilter = null
+  dedupeFilter = null,
+  updateExisting = false
 }) {
   if (!title) return null;
 
@@ -24,6 +25,13 @@ export async function publishNews({
             { $set: { eventKey: normalizedEventKey } }
           );
           existing.eventKey = normalizedEventKey;
+        }
+        if (updateExisting) {
+          existing.type = type;
+          existing.title = title;
+          existing.body = body;
+          existing.metadata = metadata;
+          await existing.save();
         }
         return existing;
       }
@@ -43,6 +51,26 @@ export async function publishNews({
     console.warn("No se pudo publicar la noticia:", error.message);
     return null;
   }
+}
+
+export function buildGameweekStandings(lineups = [], limit = 10) {
+  const eligible = lineups
+    .filter((lineup) => lineup?.user?.role === "user")
+    .map((lineup) => ({
+      teamId: lineup.user._id,
+      teamName: String(lineup.user.teamName || "Equipo sin nombre"),
+      points: Number(lineup.points || 0),
+      totalPoints: Number(lineup.user.totalPoints || 0)
+    }))
+    .sort((a, b) => b.points - a.points || a.teamName.localeCompare(b.teamName, "es"));
+
+  return {
+    participantCount: eligible.length,
+    standings: eligible.slice(0, Math.max(0, Number(limit) || 10)).map((team, index) => ({
+      rank: index + 1,
+      ...team
+    }))
+  };
 }
 
 export function matchLabel(match) {

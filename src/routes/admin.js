@@ -16,7 +16,7 @@ import { resetLeague } from "../services/leagueReset.js";
 import { updateMarketValuesAfterGameweek } from "../services/marketValues.js";
 import { optimizePlayerPhoto } from "../services/imageOptimization.js";
 import { updatePlayerFormsAfterGameweek } from "../services/playerForm.js";
-import { matchLabel, publishNews } from "../services/news.js";
+import { buildGameweekStandings, matchLabel, publishNews } from "../services/news.js";
 import {
   calculatePlayerMatchPoints,
   lockGameweekLineups,
@@ -149,13 +149,26 @@ async function publishGameweekStatusNews(gameweek, status) {
   }
 
   if (status === "finished") {
+    const lineups = await Lineup.find({ gameweek: gameweek._id })
+      .populate("user", "teamName role status totalPoints")
+      .lean();
+    const { standings, participantCount } = buildGameweekStandings(lineups, 10);
+    const winner = standings[0];
     await publishNews({
       type: "gameweek_finished",
-      title: `${gameweek.name} finalizada`,
-      body: "La clasificacion total ya refleja los puntos de esta jornada.",
-      metadata: { gameweekId: gameweek._id, number: gameweek.number },
+      title: `Cierre oficial de ${gameweek.name}`,
+      body: winner
+        ? `${winner.teamName} gana la jornada con ${winner.points} puntos. La clasificacion general ya esta actualizada.`
+        : "La jornada ha finalizado y la clasificacion general ya esta actualizada.",
+      metadata: {
+        gameweekId: gameweek._id,
+        number: gameweek.number,
+        participantCount,
+        standings
+      },
       eventKey: `gameweek:${gameweekId}:finished`,
-      dedupeFilter: { type: "gameweek_finished", "metadata.gameweekId": gameweek._id }
+      dedupeFilter: { type: "gameweek_finished", "metadata.gameweekId": gameweek._id },
+      updateExisting: true
     });
   }
 }
@@ -744,10 +757,10 @@ adminRouter.put("/gameweeks/:id", async (req, res) => {
     const populated = await Gameweek.findById(gameweek._id).populate(
       "matches.homeClub matches.awayClub matches.playerScores.player"
     );
+    await publishMarketValuesNews(marketValueUpdate);
     if (previousStatus !== populated.status && ["live", "finished"].includes(populated.status)) {
       await publishGameweekStatusNews(populated, populated.status);
     }
-    await publishMarketValuesNews(marketValueUpdate);
 
     res.json({ message: "Jornada actualizada.", gameweek: populated, formUpdate, marketValueUpdate });
   } catch (error) {
@@ -826,10 +839,10 @@ adminRouter.post("/gameweeks/:id/finish", async (req, res) => {
   const populated = await Gameweek.findById(gameweek._id).populate(
     "matches.homeClub matches.awayClub matches.playerScores.player"
   );
+  await publishMarketValuesNews(marketValueUpdate);
   if (previousStatus !== "finished") {
     await publishGameweekStatusNews(populated, "finished");
   }
-  await publishMarketValuesNews(marketValueUpdate);
 
   res.json({ message: "Jornada finalizada.", gameweek: populated, formUpdate, marketValueUpdate });
 });

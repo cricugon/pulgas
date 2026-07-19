@@ -760,7 +760,63 @@ function renderNews() {
   }
 }
 
+function renderGameweekFinishedNews(item) {
+  const standings = Array.isArray(item.metadata?.standings)
+    ? item.metadata.standings.slice(0, 10)
+    : [];
+  if (!standings.length) return "";
+
+  const podium = standings.slice(0, 3);
+  const remaining = standings.slice(3);
+  const participantCount = Number(item.metadata?.participantCount || standings.length);
+
+  return `
+    <article class="news-item news-gameweek-finished ${item.pinned ? "pinned" : ""}">
+      <header class="news-finish-header">
+        <span class="news-type">Final</span>
+        <div class="news-finish-copy">
+          <strong>${escapeHtml(item.title)}${item.pinned ? ` <span class="news-pin">Fijada</span>` : ""}</strong>
+          <small>${formatDateTime(item.createdAt)}${item.body ? ` - ${escapeHtml(item.body)}` : ""}</small>
+        </div>
+        <span class="news-finish-count">${participantCount} equipos</span>
+      </header>
+      <div class="news-podium" aria-label="Podio de la jornada">
+        ${podium.map((team) => {
+          const rank = Number(team.rank || 0);
+          const points = Number(team.points || 0);
+          const pointClass = points > 0 ? "positive" : points < 0 ? "negative" : "stable";
+          return `
+            <div class="news-podium-team rank-${rank}">
+              <span class="news-podium-rank">${rank}</span>
+              <strong>${escapeHtml(team.teamName || "Equipo")}</strong>
+              <b class="${pointClass}">${formatPoints(team.points)}</b>
+              <i aria-hidden="true"></i>
+            </div>
+          `;
+        }).join("")}
+      </div>
+      ${remaining.length ? `
+        <div class="news-top-ranking">
+          <div class="news-top-heading"><strong>Top 10 de la jornada</strong><span>Puntos</span></div>
+          ${remaining.map((team) => `
+            <div class="news-top-row">
+              <b>#${Number(team.rank || 0)}</b>
+              <span>${escapeHtml(team.teamName || "Equipo")}</span>
+              <strong class="${Number(team.points || 0) > 0 ? "positive" : Number(team.points || 0) < 0 ? "negative" : "stable"}">${formatPoints(team.points)}</strong>
+            </div>
+          `).join("")}
+        </div>
+      ` : ""}
+    </article>
+  `;
+}
+
 function renderNewsItem(item) {
+  if (item.type === "gameweek_finished") {
+    const finishedNews = renderGameweekFinishedNews(item);
+    if (finishedNews) return finishedNews;
+  }
+
   const label = NEWS_LABELS[item.type] || "Liga";
   return `
     <article class="news-item ${item.pinned ? "pinned" : ""}">

@@ -867,6 +867,199 @@ textarea:focus {
   line-height: 1.45;
 }
 
+.news-gameweek-finished {
+  display: block;
+  overflow: hidden;
+  padding: 0;
+  border-color: rgba(68, 224, 255, 0.34);
+  background: #07101f;
+}
+
+.news-finish-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 14px;
+  border-bottom: 1px solid rgba(151, 181, 255, 0.14);
+  background: linear-gradient(135deg, rgba(47, 124, 255, 0.16), rgba(7, 16, 31, 0.94));
+}
+
+.news-finish-copy {
+  min-width: 0;
+}
+
+.news-finish-copy > strong {
+  font-size: 1rem;
+}
+
+.news-finish-count {
+  min-height: 28px;
+  padding: 6px 9px;
+  border: 1px solid rgba(151, 181, 255, 0.18);
+  border-radius: 5px;
+  color: #dce7f8;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.66rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.news-podium {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  align-items: end;
+  min-height: 192px;
+  padding: 18px 14px 0;
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.news-podium-team {
+  display: grid;
+  min-width: 0;
+  justify-items: center;
+  align-content: end;
+  text-align: center;
+}
+
+.news-podium-team.rank-1 { grid-column: 2; grid-row: 1; }
+.news-podium-team.rank-2 { grid-column: 1; grid-row: 1; }
+.news-podium-team.rank-3 { grid-column: 3; grid-row: 1; }
+
+.news-podium-rank {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  margin-bottom: 7px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  color: var(--cyan);
+  background: #081225;
+  font-size: 0.78rem;
+  font-weight: 950;
+}
+
+.news-podium-team.rank-1 .news-podium-rank { color: #ffd166; }
+.news-podium-team.rank-2 .news-podium-rank { color: #c9d5e5; }
+.news-podium-team.rank-3 .news-podium-rank { color: #e49a62; }
+
+.news-podium-team > strong {
+  display: -webkit-box;
+  min-height: 34px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 0.76rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.news-podium-team > b {
+  margin: 5px 0 8px;
+  font-size: 0.72rem;
+}
+
+.news-podium-team > i {
+  display: block;
+  width: 100%;
+  height: 48px;
+  border-top: 3px solid rgba(68, 224, 255, 0.7);
+  background: rgba(47, 124, 255, 0.13);
+}
+
+.news-podium-team.rank-1 > i {
+  height: 72px;
+  border-color: #ffd166;
+  background: rgba(255, 209, 102, 0.1);
+}
+
+.news-podium-team.rank-2 > i {
+  height: 57px;
+  border-color: #c9d5e5;
+}
+
+.news-podium-team.rank-3 > i {
+  height: 43px;
+  border-color: #e49a62;
+}
+
+.news-top-ranking {
+  padding: 8px 14px 14px;
+}
+
+.news-top-heading,
+.news-top-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.news-top-heading {
+  padding: 8px 0;
+  color: var(--muted);
+  font-size: 0.64rem;
+  text-transform: uppercase;
+}
+
+.news-top-heading strong {
+  grid-column: 1 / 3;
+}
+
+.news-top-row {
+  min-height: 42px;
+  border-top: 1px solid rgba(151, 181, 255, 0.1);
+  font-size: 0.76rem;
+}
+
+.news-top-row > b {
+  color: var(--muted);
+}
+
+.news-top-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.news-top-row > strong {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.news-gameweek-finished .stable {
+  color: var(--muted);
+}
+
+@media (max-width: 520px) {
+  .news-finish-header {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 9px;
+    padding: 11px;
+  }
+
+  .news-finish-count {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .news-podium {
+    min-height: 178px;
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .news-podium-team > strong {
+    font-size: 0.68rem;
+  }
+
+  .news-top-ranking {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+}
+
 .match-card {
   display: grid;
   gap: 10px;

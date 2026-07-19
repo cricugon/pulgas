@@ -67,6 +67,8 @@ const els = {
   teamSubtitle: $("#teamSubtitle"),
   seasonStatus: $("#seasonStatus"),
   liveBadgeText: $("#liveBadgeText"),
+  activeGameweekPanel: $(".active-gameweek-panel"),
+  activeGameweekSentinel: $("#activeGameweekSentinel"),
   budgetMetric: $("#budgetMetric"),
   pointsMetric: $("#pointsMetric"),
   squadMetric: $("#squadMetric"),
@@ -666,6 +668,7 @@ function setView(view) {
   if (view === "leaderboard") loadLeaderboard();
   if (view === "profile") renderProfile();
   if (view === "admin") loadAdmin();
+  scheduleActiveGameweekCompactState();
 }
 
 function setSession(token, user) {
@@ -937,6 +940,7 @@ function renderActiveGameweek() {
     els.seasonStatus.textContent = "Sin jornada activa";
     els.liveBadgeText.textContent = "OFF";
     els.matchesList.innerHTML = `<p class="hint">No hay jornadas creadas todavia.</p>`;
+    scheduleActiveGameweekCompactState();
     return;
   }
 
@@ -965,6 +969,25 @@ function renderActiveGameweek() {
       `;
     })
     .join("") || `<p class="hint">Esta jornada aun no tiene partidos.</p>`;
+  scheduleActiveGameweekCompactState();
+}
+
+let activeGameweekCompactFrame = 0;
+
+function updateActiveGameweekCompactState() {
+  activeGameweekCompactFrame = 0;
+  if (!els.activeGameweekPanel || !els.activeGameweekSentinel) return;
+
+  const stickyTop = Number.parseFloat(getComputedStyle(els.activeGameweekPanel).top) || 0;
+  const shouldCompact = state.activeView === "dashboard"
+    && window.scrollY > 8
+    && els.activeGameweekSentinel.getBoundingClientRect().top <= stickyTop;
+  els.activeGameweekPanel.classList.toggle("is-compact", shouldCompact);
+}
+
+function scheduleActiveGameweekCompactState() {
+  if (activeGameweekCompactFrame) return;
+  activeGameweekCompactFrame = window.requestAnimationFrame(updateActiveGameweekCompactState);
 }
 
 function objectId(value) {
@@ -3463,6 +3486,8 @@ async function adminAction(target) {
 }
 
 function bindEvents() {
+  window.addEventListener("scroll", scheduleActiveGameweekCompactState, { passive: true });
+  window.addEventListener("resize", scheduleActiveGameweekCompactState);
   els.loginTab.addEventListener("click", () => setAuthMode("login"));
   els.registerTab.addEventListener("click", () => setAuthMode("register"));
   els.authForm.addEventListener("submit", handleAuth);
